@@ -1053,3 +1053,65 @@ test('saved project files reopen imported character artwork with the image intac
   expect(reopened).toEqual({ name: 'roundtrip-character.png', width: 1, height: 1, imageData: true });
   expect(errors).toEqual([]);
 });
+
+
+test('rig hierarchy preserves world transforms, blocks cycles, and remaps layer references', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.waitForFunction(() => parts.length === 10);
+  await page.evaluate(() => {
+    parts[0].x = 40; parts[0].y = 30; parts[0].rot = 30; parts[0].scale = 2;
+    parts[1].x = 100; parts[1].y = 50; parts[1].rot = 15; parts[1].scale = 0.75;
+    keys[0] = snap();
+    select(1);
+    pushHistory();
+  });
+  const beforeAttach = await page.evaluate(() => worldTransform(1));
+  await page.locator('#parentSelect').selectOption('0');
+  await page.locator('#attachPart').click();
+  const afterAttach = await page.evaluate(() => worldTransform(1));
+  expect(afterAttach.x).toBeCloseTo(beforeAttach.x, 5);
+  expect(afterAttach.y).toBeCloseTo(beforeAttach.y, 5);
+  expect(afterAttach.r).toBeCloseTo(beforeAttach.r, 5);
+  expect(afterAttach.sc).toBeCloseTo(beforeAttach.sc, 5);
+
+  await page.evaluate(() => select(0));
+  const allowedParents = await page.locator('#parentSelect option').evaluateAll(options => options.map(o => o.value));
+  expect(allowedParents).not.toContain('1');
+  await page.evaluate(() => { const select = document.querySelector('#parentSelect'); select.add(new Option('Head (invalid descendant)', '1')); select.value = '1'; });
+  await page.locator('#attachPart').click();
+  expect(await page.evaluate(() => parts[0].parent)).toBe(-1);
+  expect(await page.evaluate(() => parts[1].parent)).toBe(0);
+
+  const torsoKeyX = await page.evaluate(() => keys[0][0].x);
+  await page.evaluate(() => select(0));
+  await page.locator('#down').click();
+  const reordered = await page.evaluate(() => ({
+    names: [parts[0].name, parts[1].name],
+    childParent: parts[0].parent,
+    keyX: keys[0][1].x
+  }));
+  expect(reordered.names[1]).toBe('Torso');
+  expect(reordered.childParent).toBe(1);
+  expect(reordered.keyX).toBe(torsoKeyX);
+
+  const childWorldBeforeRemoval = await page.evaluate(() => worldTransform(0));
+  await page.evaluate(() => select(1));
+  await page.locator('#remove').click();
+  const childAfterRemoval = await page.evaluate(() => ({ parent: parts[0].parent, world: worldTransform(0), keyCount: keys[0].length }));
+  expect(childAfterRemoval.parent).toBe(-1);
+  expect(childAfterRemoval.world.x).toBeCloseTo(childWorldBeforeRemoval.x, 5);
+  expect(childAfterRemoval.world.y).toBeCloseTo(childWorldBeforeRemoval.y, 5);
+  expect(childAfterRemoval.world.r).toBeCloseTo(childWorldBeforeRemoval.r, 5);
+  expect(childAfterRemoval.world.sc).toBeCloseTo(childWorldBeforeRemoval.sc, 5);
+  expect(childAfterRemoval.keyCount).toBe(9);
+
+  await page.locator('#undo').click();
+  expect(await page.evaluate(() => ({ count: parts.length, torso: parts[1].name, parent: parts[0].parent })))
+    .toEqual({ count: 10, torso: 'Torso', parent: 1 });
+  await page.locator('#redo').click();
+  expect(await page.evaluate(() => parts.length)).toBe(9);
+  expect(errors).toEqual([]);
+});
