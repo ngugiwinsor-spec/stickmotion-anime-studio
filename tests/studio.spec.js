@@ -636,3 +636,24 @@ test('studio layout remains usable at a narrow mobile viewport', async ({ page }
   expect(layout.canvas).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
+
+test('full episode export renders a WebM download and restores the editing scene', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#sceneDuration').fill('1');
+  await page.locator('#sceneDuration').dispatchEvent('change');
+  const beforeScene = await page.locator('#sceneSelect').inputValue();
+  const downloadPromise = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#exportEpisodeVideo').click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('stickmotion-full-episode.webm');
+  expect(await download.failure()).toBeNull();
+  await expect(page.locator('#videoStatus')).toContainText('Full episode exported', { timeout: 10000 });
+  expect(await page.locator('#sceneSelect').inputValue()).toBe(beforeScene);
+  expect(await page.locator('#layers .layer')).toHaveCount(10);
+  expect(errors).toEqual([]);
+});
+
