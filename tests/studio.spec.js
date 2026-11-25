@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v6.7');
+  await expect(page.locator('.badge')).toContainText('v6.8');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
