@@ -996,8 +996,8 @@ el('eyeGlow').oninput=()=>{el('eyeGlowLabel').textContent=el('eyeGlow').value+'%
 
 /* v6.9: timeline-synced anime afterimage trails */
 el('trailStrength').oninput=()=>{el('trailStrengthLabel').textContent=el('trailStrength').value+'%';draw()};
-el('motionTrails').onchange=draw;
-el('trailCount').onchange=draw;
+el('motionTrails').onchange=()=>draw();
+el('trailCount').onchange=()=>draw();
 const drawBeforeMotionTrails=draw;
 draw=function(){
  drawBeforeMotionTrails();
