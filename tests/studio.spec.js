@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v6.9');
+  await expect(page.locator('.badge')).toContainText('v7.0');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -79,5 +79,39 @@ test('anime afterimage trails render and respond to controls', async ({ page }) 
   const after = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
   expect(after).not.toBe(before);
   await page.locator('#motionTrails').uncheck();
+  expect(errors).toEqual([]);
+});
+
+test('onion skin shows neighboring poses but is excluded from exports', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#capture').click();
+  await page.evaluate(() => {
+    const frame = document.querySelector('#frame');
+    frame.value = '60';
+    frame.dispatchEvent(new Event('input', { bubbles: true }));
+    const x = document.querySelector('#x');
+    x.value = '120';
+    x.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.locator('#capture').click();
+  await page.evaluate(() => {
+    const frame = document.querySelector('#frame');
+    frame.value = '30';
+    frame.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const normal = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  await page.locator('#onionSkin').check();
+  const withOnion = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  expect(withOnion).not.toBe(normal);
+  await page.locator('#onionMode').selectOption('previous');
+  await page.locator('#onionOpacity').fill('45');
+  await page.evaluate(() => { window.__stickMotionExporting = true; draw(); });
+  const exportFrame = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  expect(exportFrame).not.toBe(withOnion);
+  await page.evaluate(() => { window.__stickMotionExporting = false; draw(); });
   expect(errors).toEqual([]);
 });
