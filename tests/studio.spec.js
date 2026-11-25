@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.4');
+  await expect(page.locator('.badge')).toContainText('v7.5');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -199,5 +199,24 @@ test('secondary motion adds delayed overlap to distal keyframed parts', async ({
   const after = await page.evaluate(() => JSON.stringify(keys));
   expect(after).not.toBe(before);
   await expect(page.locator('#secondaryStatus')).toContainText('Secondary motion applied to');
+  expect(errors).toEqual([]);
+});
+
+
+test('camera follow generates target-tracking camera keys', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#motionPreset').selectOption('walk');
+  await page.locator('#generateMotion').click();
+  await page.locator('#cameraFollowTarget').selectOption({label:'Torso'});
+  await page.locator('#cameraFollowStrength').fill('85');
+  await page.locator('#generateCameraFollow').click();
+  await expect(page.locator('#cameraFollowStatus')).toContainText('Generated 9 camera follow keys tracking Torso');
+  const result = await page.evaluate(() => ({count:Object.keys(window.__stickMotionCameraKeys).length,values:Object.values(window.__stickMotionCameraKeys)}));
+  expect(result.count).toBe(9);
+  expect(result.values.some(k => Math.abs(k.x)>0.1 || Math.abs(k.y)>0.1)).toBeTruthy();
   expect(errors).toEqual([]);
 });
