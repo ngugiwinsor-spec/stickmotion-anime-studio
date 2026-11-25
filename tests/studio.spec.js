@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.18');
+  await expect(page.locator('.badge')).toContainText('v7.19');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -310,6 +310,15 @@ test('sound cues can be duplicated independently and persist', async ({ page }) 
   await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[0,'impact'],[36,'whoosh']]);
   expect(errors).toEqual([]);
+});
+
+test('sound cue frame can be copied from its cue row', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.evaluate(() => { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.__copiedCueFrame = value; } } }); });
+  await page.getByRole('button', { name: 'Copy sound cue frame 0' }).click();
+  await expect(page.locator('#sfxStatus')).toContainText('Copied cue frame 0');
+  expect(await page.evaluate(() => window.__copiedCueFrame)).toBe('0');
 });
 
 test('sound cue can be snapped to the current timeline playhead', async ({ page }) => {
