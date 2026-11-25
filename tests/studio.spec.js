@@ -564,3 +564,27 @@ test('all sound cue volumes can be changed together while preserving cue setting
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([45,45]);
   expect(errors).toEqual([]);
 });
+
+
+test('sound cue edits autosave to the project and active scene without a canvas redraw', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#addSfxCue').click();
+  await page.locator('#allSfxVolume').fill('45');
+  await page.locator('#setAllSfxVolumes').click();
+  await page.waitForTimeout(700);
+  const stored = await page.evaluate(() => ({
+    project: JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1') || 'null'),
+    scenes: JSON.parse(localStorage.getItem('stickmotion-anime-studio-scenes-v1') || 'null')
+  }));
+  expect(stored.project.soundEffects).toHaveLength(1);
+  expect(stored.project.soundEffects[0].volume).toBe(45);
+  expect(stored.scenes.scenes[0].project.soundEffects[0].volume).toBe(45);
+  await page.reload();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([45]);
+  expect(errors).toEqual([]);
+});
