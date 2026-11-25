@@ -644,6 +644,8 @@ test('full episode export renders a WebM download and restores the editing scene
   await page.goto('/');
   await page.locator('#addDemo').click();
   await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#sceneAdd').click();
+  await expect(page.locator('#sceneSelect option')).toHaveCount(1);
   await page.locator('#sceneDuration').fill('1');
   await page.locator('#sceneDuration').dispatchEvent('change');
   const beforeScene = await page.locator('#sceneSelect').inputValue();
