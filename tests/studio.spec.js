@@ -888,3 +888,71 @@ test('Mediabunny episode encoder includes the mixed Opus audio track', async ({ 
   expect(result.audio).toBeTruthy();
   expect(result.duration).toBeGreaterThanOrEqual(0.9);
 });
+
+
+test('full episode export preserves imported audio and scene sound effects', async ({ page }) => {
+  test.setTimeout(90000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+
+  await page.locator('#frame').fill('12');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#sfxType').selectOption('impact');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#sceneDuration').fill('1');
+  await page.locator('#sceneDuration').dispatchEvent('change');
+
+  await page.locator('#sceneAdd').click();
+  await page.locator('#sceneDuration').fill('1');
+  await page.locator('#sceneDuration').dispatchEvent('change');
+  await page.locator('#frame').fill('18');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#sfxType').selectOption('magic');
+  await page.locator('#addSfxCue').click();
+
+  const audioDuration = await page.evaluate(async () => {
+    const sampleRate = 48000;
+    const samples = sampleRate * 2;
+    const bytes = new ArrayBuffer(44 + samples * 2);
+    const view = new DataView(bytes);
+    const write = (offset, value) => {
+      for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+    };
+    write(0, 'RIFF');
+    view.setUint32(4, 36 + samples * 2, true);
+    write(8, 'WAVE');
+    write(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    write(36, 'data');
+    view.setUint32(40, samples * 2, true);
+    for (let i = 0; i < samples; i++) {
+      const sample = Math.sin(2 * Math.PI * 440 * i / sampleRate) * 0.15;
+      view.setInt16(44 + i * 2, Math.round(sample * 32767), true);
+    }
+    const audio = document.querySelector('#dialogueAudio');
+    audio.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+    audio.load();
+    await new Promise((resolve, reject) => {
+      audio.onloadedmetadata = resolve;
+      audio.onerror = () => reject(new Error('Synthetic imported audio could not be loaded'));
+    });
+    return audio.duration;
+  });
+  expect(audioDuration).toBeCloseTo(2, 1);
+
+  const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
+  await page.locator('#exportEpisodeVideo').click();
+  await expect(page.locator('#videoStatus')).toContainText('Full episode exported and verified', { timeout: 60000 });
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('stickmotion-full-episode.webm');
+  expect(await download.failure()).toBeNull();
+  expect(errors).toEqual([]);
+});
