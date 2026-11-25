@@ -1001,7 +1001,7 @@ el('exportEpisodeVideo').onclick=async()=>{
       ctx.save();ctx.beginPath();ctx.rect(0,0,c.width*progress,c.height);ctx.clip();ctx.drawImage(temp,0,0);ctx.restore();
      }else ctx.drawImage(temp,0,0);
     }
-    if(videoTrack&&typeof videoTrack.requestFrame==='function'){videoTrack.requestFrame();requestedFrames++}
+    captureCtx.clearRect(0,0,captureCanvas.width,captureCanvas.height);captureCtx.drawImage(c,0,0,captureCanvas.width,captureCanvas.height);if(videoTrack&&typeof videoTrack.requestFrame==='function'){videoTrack.requestFrame();requestedFrames++}
     rendered++;
     videoStatus('Episode render '+Math.round(rendered/totalFrames*100)+'% · Scene '+(si+1)+'/'+episodeScenes.length);
     await delay(Math.max(0,start+rendered*1000/fps-performance.now()));
