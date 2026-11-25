@@ -588,3 +588,49 @@ test('sound cue edits autosave to the project and active scene without a canvas 
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([45]);
   expect(errors).toEqual([]);
 });
+
+
+test('multiple scenes and their sound cues survive reload and scene switching', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#addSfxCue').click();
+  await page.locator('#allSfxVolume').fill('35');
+  await page.locator('#setAllSfxVolumes').click();
+  await page.locator('#sceneAdd').click();
+  await expect(page.locator('#sceneSelect option')).toHaveCount(2);
+  await page.locator('#addSfxCue').click();
+  await page.locator('#allSfxVolume').fill('75');
+  await page.locator('#setAllSfxVolumes').click();
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await expect(page.locator('#sceneSelect option')).toHaveCount(2);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([75,75]);
+  const options = await page.locator('#sceneSelect option').evaluateAll(nodes => nodes.map(n => n.value));
+  await page.locator('#sceneSelect').selectOption(options[0]);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([35]);
+  await page.locator('#sceneSelect').selectOption(options[1]);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([75,75]);
+  expect(errors).toEqual([]);
+});
+
+test('studio layout remains usable at a narrow mobile viewport', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const layout = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+    main: document.querySelector('main').getBoundingClientRect().width,
+    stage: document.querySelector('.stage-area').getBoundingClientRect().width,
+    canvas: document.querySelector('canvas').getBoundingClientRect().width
+  }));
+  expect(layout.document).toBeLessThanOrEqual(layout.viewport);
+  expect(layout.main).toBeLessThanOrEqual(layout.viewport);
+  expect(layout.stage).toBeGreaterThan(0);
+  expect(layout.canvas).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
