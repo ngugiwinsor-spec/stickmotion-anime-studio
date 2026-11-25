@@ -739,33 +739,23 @@ test('diagnostic: episode recorder lifecycle isolates canvas reset and audio tra
 test('diagnostic: Mediabunny encodes and Chromium decodes a deterministic WebM', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto('/');
-  await page.addScriptTag({ url: 'https://github.com/Vanilagy/mediabunny/releases/download/v1.66.4/mediabunny.min.cjs' });
   const result = await page.evaluate(async () => {
-    const { Output, WebMOutputFormat, BufferTarget, CanvasSource, Quality } = window.Mediabunny;
     const canvas = document.createElement('canvas');
     canvas.width = 320;
     canvas.height = 180;
-    const context = canvas.getContext('2d');
-    const target = new BufferTarget();
-    const output = new Output({ format: new WebMOutputFormat(), target });
-    const source = new CanvasSource(canvas, {
-      codec: 'vp8',
-      quality: new Quality({ bitrate: 1_000_000 })
+    const blob = await window.StickMotionEpisodeExport.encode({
+      canvas,
+      fps: 24,
+      frameCount: 24,
+      bitrate: 1000000,
+      renderFrame: async i => {
+        const context = canvas.getContext('2d');
+        context.fillStyle = i % 2 ? '#e22' : '#26c';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = '#fff';
+        context.fillRect(i * 10, 40, 40, 40);
+      }
     });
-    output.addVideoTrack(source, { frameRate: 24 });
-    await output.start();
-    for (let i = 0; i < 24; i++) {
-      context.fillStyle = i % 2 ? '#e22' : '#26c';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.fillStyle = '#fff';
-      context.fillRect(i * 10, 40, 40, 40);
-      await source.add(i / 24, 1 / 24);
-    }
-    source.close();
-    await output.finalize();
-    const buffer = target.buffer;
-    if (!buffer || !buffer.byteLength) throw new Error('Mediabunny returned an empty WebM');
-    const blob = new Blob([buffer], { type: 'video/webm' });
     const video = document.createElement('video');
     video.muted = true;
     video.src = URL.createObjectURL(blob);
@@ -785,13 +775,7 @@ test('diagnostic: Mediabunny encodes and Chromium decodes a deterministic WebM',
     decodedContext.drawImage(video, 0, 0);
     const pixel = [...decodedContext.getImageData(5, 5, 1, 1).data];
     URL.revokeObjectURL(video.src);
-    return {
-      bytes: buffer.byteLength,
-      duration: video.duration,
-      width: video.videoWidth,
-      height: video.videoHeight,
-      decodedPixel: pixel
-    };
+    return { bytes: blob.size, duration: video.duration, width: video.videoWidth, height: video.videoHeight, decodedPixel: pixel };
   });
   console.log('MEDIABUNNY_WEBM_DECODE_DIAGNOSTIC', JSON.stringify(result));
   expect(result.bytes).toBeGreaterThan(1000);
@@ -799,4 +783,177 @@ test('diagnostic: Mediabunny encodes and Chromium decodes a deterministic WebM',
   expect(result.width).toBe(320);
   expect(result.height).toBe(180);
   expect(result.decodedPixel[3]).toBe(255);
+});
+
+
+test('isolated renderer draws scene frames without changing the editor canvas', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.locator('#motionPreset').selectOption('walk');
+  await page.locator('#generateMotion').click();
+  const before = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  const state = await page.evaluate(() => window.__stickMotionProjectState());
+  const renderer = await page.evaluateHandle(() => new Promise(resolve => {
+    const frame = document.createElement('iframe');
+    frame.style.display = 'none';
+    const url = new URL(location.href);
+    url.searchParams.set('export-renderer', '1');
+    frame.onload = () => resolve(frame);
+    frame.src = url.href;
+    document.body.appendChild(frame);
+  }));
+  const result = await renderer.evaluate(async (frame, project) => {
+    if (!frame.contentWindow.__stickMotionExportRenderer) throw new Error('Renderer isolation mode was not enabled');
+    await frame.contentWindow.__stickMotionLoadExportScene(project);
+    const firstCanvas = frame.contentWindow.__stickMotionRenderExportFrame(0);
+    const first = firstCanvas.toDataURL();
+    const secondCanvas = frame.contentWindow.__stickMotionRenderExportFrame(20);
+    const second = secondCanvas.toDataURL();
+    return { width: secondCanvas.width, height: secondCanvas.height, framesDiffer: first !== second };
+  }, state);
+  const after = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  expect(result.width).toBe(1280);
+  expect(result.height).toBe(720);
+  expect(result.framesDiffer).toBeTruthy();
+  expect(after).toBe(before);
+  await renderer.evaluate(frame => frame.remove());
+});
+
+test('episode audio mixer aligns scene sound cues and emits continuous audio chunks', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const scenes = [
+      { duration: 1, project: { soundEffectsVolume: 100, soundEffects: [{ frame: 12, type: 'impact', volume: 100 }] } },
+      { duration: 1, project: { soundEffectsVolume: 80, soundEffects: [{ frame: 6, type: 'magic', volume: 90 }] } }
+    ];
+    const chunks = [];
+    for await (const buffer of window.StickMotionEpisodeExport.mixEpisodeAudio({ scenes, fps: 24, chunkSeconds: 1 })) chunks.push(buffer);
+    const rms = (buffer, fromSeconds, toSeconds) => {
+      const channel = buffer.getChannelData(0);
+      const start = Math.floor(fromSeconds * buffer.sampleRate);
+      const end = Math.min(channel.length, Math.floor(toSeconds * buffer.sampleRate));
+      let sum = 0;
+      for (let i = start; i < end; i++) sum += channel[i] * channel[i];
+      return Math.sqrt(sum / Math.max(1, end - start));
+    };
+    return {
+      chunks: chunks.length,
+      duration: chunks.reduce((sum, buffer) => sum + buffer.duration, 0),
+      firstCueRms: rms(chunks[0], 0.48, 0.75),
+      secondCueRms: rms(chunks[1], 0.23, 0.52)
+    };
+  });
+  expect(result.chunks).toBe(2);
+  expect(result.duration).toBeCloseTo(2, 2);
+  expect(result.firstCueRms).toBeGreaterThan(0.001);
+  expect(result.secondCueRms).toBeGreaterThan(0.001);
+});
+
+test('Mediabunny episode encoder includes the mixed Opus audio track', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const audioContext = new Offline(1, 48000, 48000);
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    gain.gain.value = 0.12;
+    oscillator.frequency.value = 440;
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(0);
+    oscillator.stop(1);
+    const audioBuffer = await audioContext.startRendering();
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 180;
+    const blob = await window.StickMotionEpisodeExport.encode({
+      canvas, fps: 24, frameCount: 24, bitrate: 1000000, audioBuffer,
+      renderFrame: async i => {
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#234';
+        context.fillRect(0, 0, 320, 180);
+        context.fillStyle = '#fff';
+        context.fillRect(i * 10, 40, 30, 30);
+      }
+    });
+    const MB = await window.StickMotionEpisodeExport.loadMediabunny();
+    const input = new MB.Input({ source: new MB.BlobSource(blob), formats: MB.ALL_FORMATS });
+    const videoTrack = await input.getPrimaryVideoTrack();
+    const audioTrack = await input.getPrimaryAudioTrack();
+    const duration = await input.computeDuration();
+    return { bytes: blob.size, video: !!videoTrack, audio: !!audioTrack, duration };
+  });
+  expect(result.bytes).toBeGreaterThan(1000);
+  expect(result.video).toBeTruthy();
+  expect(result.audio).toBeTruthy();
+  expect(result.duration).toBeGreaterThanOrEqual(0.9);
+});
+
+
+test('full episode export preserves imported audio and scene sound effects', async ({ page }) => {
+  test.setTimeout(90000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+
+  await page.locator('#frame').fill('12');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#sfxType').selectOption('impact');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#sceneDuration').fill('1');
+  await page.locator('#sceneDuration').dispatchEvent('change');
+
+  await page.locator('#sceneAdd').click();
+  await page.locator('#sceneDuration').fill('1');
+  await page.locator('#sceneDuration').dispatchEvent('change');
+  await page.locator('#frame').fill('18');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#sfxType').selectOption('magic');
+  await page.locator('#addSfxCue').click();
+
+  const audioDuration = await page.evaluate(async () => {
+    const sampleRate = 48000;
+    const samples = sampleRate * 2;
+    const bytes = new ArrayBuffer(44 + samples * 2);
+    const view = new DataView(bytes);
+    const write = (offset, value) => {
+      for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+    };
+    write(0, 'RIFF');
+    view.setUint32(4, 36 + samples * 2, true);
+    write(8, 'WAVE');
+    write(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    write(36, 'data');
+    view.setUint32(40, samples * 2, true);
+    for (let i = 0; i < samples; i++) {
+      const sample = Math.sin(2 * Math.PI * 440 * i / sampleRate) * 0.15;
+      view.setInt16(44 + i * 2, Math.round(sample * 32767), true);
+    }
+    const audio = document.querySelector('#dialogueAudio');
+    const metadataReady = new Promise((resolve, reject) => {
+      audio.addEventListener('loadedmetadata', resolve, { once: true });
+      audio.addEventListener('error', () => reject(new Error('Synthetic imported audio could not be loaded')), { once: true });
+    });
+    audio.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+    audio.load();
+    await metadataReady;
+    return audio.duration;
+  });
+  expect(audioDuration).toBeCloseTo(2, 1);
+
+  const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
+  await page.locator('#exportEpisodeVideo').click();
+  await expect(page.locator('#videoStatus')).toContainText('Full episode exported and verified', { timeout: 60000 });
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('stickmotion-full-episode.webm');
+  expect(await download.failure()).toBeNull();
+  expect(errors).toEqual([]);
 });

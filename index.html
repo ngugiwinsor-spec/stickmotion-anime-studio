@@ -76,7 +76,9 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Camera rotation</label><input id="camRot" type="range" min="-180" max="180" value="0">
 <div class="row"><button id="cameraCenter">Reset camera</button><button id="cameraCapture" class="primary">Capture camera key</button></div><h3 style="margin-top:14px">Cinematic effects · v6.4</h3><label><input id="cinematicShake" type="checkbox" checked style="width:auto"> Enable camera shake</label><label>Shake intensity <span id="shakeLabel">8</span></label><input id="shakeIntensity" type="range" min="0" max="30" value="8"><label><input id="impactFlash" type="checkbox" checked style="width:auto"> Impact flash</label><h3 style="margin-top:14px">Camera presets · v6.5</h3><label>Shot framing</label><select id="cameraPreset"><option value="custom">Custom framing</option><option value="wide">Wide establishing shot</option><option value="hero">Hero shot</option><option value="close">Close-up</option><option value="dutch">Dutch angle</option><option value="low">Low-angle dramatic</option></select><button id="applyCameraPreset" class="primary" style="width:100%;margin-top:6px">Apply camera preset</button><div class="hint" id="cameraPresetStatus">Choose a shot and apply it. Capture a camera key to animate between shots.</div><h3 style="margin-top:14px">Lighting & atmosphere · v6.5</h3><label>Atmosphere</label><select id="atmospherePreset"><option value="neutral">Neutral</option><option value="sunset">Warm sunset</option><option value="moon">Cool moonlight</option><option value="ember">Ember / battle</option><option value="teal">Teal cinematic</option></select><label>Atmosphere strength <span id="atmosphereLabel">18%</span></label><input id="atmosphereStrength" type="range" min="0" max="60" value="18"><label>Vignette strength <span id="vignetteLabel">25%</span></label><input id="vignetteStrength" type="range" min="0" max="80" value="25"><h3 style="margin-top:14px">Anime effects · v6.6</h3><label>Effect type</label><select id="animeEffect"><option value="none">None</option><option value="speed">Anime speed lines</option><option value="sparks">Impact sparks</option><option value="aura">Energy aura</option><option value="embers">Floating embers</option></select><label>Effect intensity <span id="effectIntensityLabel">50%</span></label><input id="effectIntensity" type="range" min="0" max="100" value="50"><div class="hint">Effects follow the timeline frame. Select a character layer to anchor sparks and energy around its rig position.</div><h3 style="margin-top:14px">Anime motion trails · v6.9</h3><label><input id="motionTrails" type="checkbox" style="width:auto"> Enable afterimage trails</label><label>Trail count</label><select id="trailCount"><option value="1">1 ghost</option><option value="2">2 ghosts</option><option value="3" selected>3 ghosts</option><option value="4">4 ghosts</option></select><label>Trail strength <span id="trailStrengthLabel">55%</span></label><input id="trailStrength" type="range" min="10" max="100" value="55"><div class="hint">Afterimages follow the selected character part and animation direction. They are timeline-synced preview effects and are included in video exports.</div><h3 style="margin-top:14px">Anime finishing · v6.7</h3><label>Character glow</label><div class="row"><input id="characterGlow" type="checkbox"><select id="glowColor"><option value="#62d9ff">Cyan</option><option value="#b58cff">Violet</option><option value="#ffd36b">Gold</option><option value="#ff6688">Crimson</option></select></div><label>Glow strength <span id="glowStrengthLabel">18</span></label><input id="glowStrength" type="range" min="0" max="40" value="18"><label>Eye glow <span id="eyeGlowLabel">0%</span></label><input id="eyeGlow" type="range" min="0" max="100" value="0"><div class="hint">Character glow is drawn behind the selected artwork. Eye glow follows the facial overlay on the selected head layer.</div><div class="hint">Lighting overlays are preview effects and do not alter your source character artwork.</div><div class="hint" id="cinematicStatus">Shake follows the timeline frame. Impact flashes are added to generated attack, dodge and jump actions.</div>
 <div class="hint">Animate camera position, zoom and rotation using the same frame timeline. Camera moves affect the entire scene and are included in project JSON.</div></section></aside></main>
+<script src="./episode-export-engine.js"></script>
 <script>
+window.__stickMotionExportRenderer = new URLSearchParams(location.search).has("export-renderer");
 const c=document.getElementById('stage'),ctx=c.getContext('2d');let parts=[],sel=-1,transparent=false,keys={},frame=0,playing=false,playTimer=null;
 const el=id=>document.getElementById(id);
 function draw(){ctx.clearRect(0,0,c.width,c.height);if(!transparent){ctx.fillStyle=el('bg').value;ctx.fillRect(0,0,c.width,c.height)}
@@ -303,6 +305,7 @@ function loadProjectState(s){
  historyLock=false;queueAutosave();
 }
 function queueAutosave(){
+ if(window.__stickMotionExportRenderer)return;
  if(savePending)return;savePending=true;
  setTimeout(()=>{savePending=false;try{localStorage.setItem(PROJECT_KEY,JSON.stringify(projectState()))}catch(e){console.warn('Autosave unavailable: browser storage may be full',e)}},500);
 }
@@ -363,7 +366,7 @@ try{const d=JSON.parse(localStorage.getItem(SCENE_KEY)||'null');if(d?.scenes?.le
 /* Keep the active scene snapshot in the episode autosave as edits occur. */
 let sceneAutosaveTimer=null;
 const drawBeforeSceneAutosave=draw;
-draw=function(){drawBeforeSceneAutosave();if(activeSceneId){clearTimeout(sceneAutosaveTimer);sceneAutosaveTimer=setTimeout(()=>{saveActiveScene();persistScenes()},1200)}};
+draw=function(){drawBeforeSceneAutosave();if(!window.__stickMotionExportRenderer&&activeSceneId){clearTimeout(sceneAutosaveTimer);sceneAutosaveTimer=setTimeout(()=>{saveActiveScene();persistScenes()},1200)}};
 
 /* v5.2: two-joint inverse kinematics solver for root-level limbs */
 function refreshIKMenus(){
@@ -939,101 +942,154 @@ el('exportVideo').onclick=async()=>{
 };
 
 
-/* v5.0: render every scene in order and composite cut/fade/wipe transitions */
+/* v8.0: deterministic, isolated full-episode export using Mediabunny/WebCodecs. */
 el('exportEpisodeVideo').onclick=async()=>{
- const mime=supportedVideoMime();
- if(!c.captureStream||!window.MediaRecorder||!mime){videoStatus('Video export unsupported in this browser');return}
+ const Engine=window.StickMotionEpisodeExport;
+ if(!Engine||typeof Engine.encode!=='function'){videoStatus('The new episode export engine is unavailable. Reload the studio and try again.');return}
  if(!episodeScenes.length){videoStatus('Add a scene first');return}
- if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play'}
- resetEpisodeSfxEvents();
  saveActiveScene();persistScenes();
- const savedSceneId=activeSceneId,savedState=projectState(),savedDuration=el('sceneDuration').value;
- const savedTransition=el('sceneTransition').value,savedTransitionDuration=el('transitionDuration').value;
+ const scenes=JSON.parse(JSON.stringify(episodeScenes));
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
- const totalFrames=episodeScenes.reduce((n,sc)=>n+Math.max(1,Math.ceil((Number(sc.duration)||5)*fps)),0);
- const stream=c.captureStream(fps),videoTrack=stream.getVideoTracks()[0],chunks=[];let requestedFrames=0,recorderDataEvents=0;
- sfxInit();if(sfxDestination)sfxDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
- let recorder=null,prevFrame=null,rendered=0;
- window.__stickMotionExporting=true;
- const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
- const waitImages=async()=>{const imgs=parts.map(p=>p.img).filter(Boolean),pending=imgs.filter(im=>!im.complete);if(!pending.length)return;await Promise.race([Promise.all(pending.map(im=>new Promise(res=>{im.addEventListener('load',res,{once:true});im.addEventListener('error',res,{once:true})}))),delay(15000).then(()=>{throw new Error('Timed out waiting for '+pending.length+' artwork image(s)')})])};
- let loadedRenderSceneId=null;
- const loadRenderScene=async sc=>{
-  if(loadedRenderSceneId===sc.id)return;
-  loadProjectState(sc.project);
-  await waitImages();
-  loadedRenderSceneId=sc.id;
- };
- const renderSceneAt=async(sc,f)=>{
-  await loadRenderScene(sc);
-  frame=Math.max(0,Math.min(120,f));el('frame').value=frame;el('frameLabel').textContent=frame;
-  applyKey(frame);draw();
- };
+ const frameCounts=scenes.map(sc=>Math.max(1,Math.ceil((Number(sc.duration)||5)*fps)));
+ const totalFrames=frameCounts.reduce((sum,count)=>sum+count,0);
+ const expectedDuration=totalFrames/fps;
+ const firstCanvas=scenes[0]?.project?.canvas||{};
+ const width=Math.max(1,Math.min(3840,Number(firstCanvas.width)||1280));
+ const height=Math.max(1,Math.min(3840,Number(firstCanvas.height)||720));
+ const outputCanvas=document.createElement('canvas');
+ outputCanvas.width=width;outputCanvas.height=height;
+ const outputCtx=outputCanvas.getContext('2d',{alpha:false});
+ const sceneCanvas=document.createElement('canvas');
+ sceneCanvas.width=width;sceneCanvas.height=height;
+ const sceneCtx=sceneCanvas.getContext('2d',{alpha:false});
+ const previousCanvas=document.createElement('canvas');
+ previousCanvas.width=width;previousCanvas.height=height;
+ const previousCtx=previousCanvas.getContext('2d',{alpha:false});
+ let rendererFrame=null,renderer=null,downloadUrl=null,probeVideo=null;
  try{
-  activeSceneId=null;
-  const audioStream=audioEl.src&&typeof audioEl.captureStream==='function'?audioEl.captureStream():null;
-  if(audioStream)audioStream.getAudioTracks().forEach(t=>stream.addTrack(t));
-  recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:exportVideoBitrate()});
-  recorder.ondataavailable=e=>{recorderDataEvents++;if(e.data?.size)chunks.push(e.data)};
-  const finished=new Promise((resolve,reject)=>{recorder.onstop=resolve;recorder.onerror=e=>reject(e.error||new Error('Recording failed'))});
-  recorder.start(250);
-  await delay(300);
-  if(sfxContext?.state==='suspended')await sfxContext.resume();
-  const episodeSfxStart=sfxContext?.currentTime||0;
-  if(audioStream){audioEl.currentTime=Math.max(0,Number(el('audioOffset').value)||0);await audioEl.play().catch(()=>{})}
-  for(let si=0;si<episodeScenes.length;si++){
-   const sc=episodeScenes[si],count=Math.max(1,Math.ceil((Number(sc.duration)||5)*fps));
-   const transFrames=si===0?0:Math.min(count,Math.ceil(Math.max(0,Math.min(5,Number(sc.transitionDuration)||0))*fps));
-   const previous=prevFrame;
-   for(let f=0;f<count;f++){
-    await renderSceneAt(sc,f);
-    scheduleEpisodeSfx(sc.id,f,episodeSfxStart+rendered/fps);
-    if(si>0&&f<transFrames&&previous){
-     const progress=transFrames<=1?1:(f+1)/transFrames;
-     const temp=document.createElement('canvas');temp.width=c.width;temp.height=c.height;
-     const tctx=temp.getContext('2d');tctx.drawImage(c,0,0);
-     ctx.clearRect(0,0,c.width,c.height);
-     if(sc.transition==='fade'){
-      ctx.drawImage(previous,0,0,c.width,c.height);
-      ctx.globalAlpha=progress;ctx.drawImage(temp,0,0);ctx.globalAlpha=1;
-     }else if(sc.transition==='wipe'){
-      ctx.drawImage(previous,0,0,c.width,c.height);
-      ctx.save();ctx.beginPath();ctx.rect(0,0,c.width*progress,c.height);ctx.clip();ctx.drawImage(temp,0,0);ctx.restore();
-     }else ctx.drawImage(temp,0,0);
-    }
-    if(videoTrack&&typeof videoTrack.requestFrame==='function'){videoTrack.requestFrame();requestedFrames++}
-    rendered++;
-    videoStatus('Episode render '+Math.round(rendered/totalFrames*100)+'% · Scene '+(si+1)+'/'+episodeScenes.length);
-    // Never catch up by rendering frames back-to-back: the browser compositor
-    // needs a real frame interval to deliver frames to MediaRecorder.
-    await delay(1000/fps);
+  videoStatus('Preparing isolated episode renderer…');
+  rendererFrame=document.createElement('iframe');
+  rendererFrame.title='Private episode export renderer';
+  rendererFrame.setAttribute('aria-hidden','true');
+  rendererFrame.style.cssText='position:fixed;left:-10000px;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+  const rendererUrl=new URL(location.href);
+  rendererUrl.searchParams.set('export-renderer','1');
+  const ready=new Promise((resolve,reject)=>{
+   rendererFrame.onload=resolve;
+   rendererFrame.onerror=()=>reject(new Error('Could not start the isolated scene renderer.'));
+  });
+  rendererFrame.src=rendererUrl.href;
+  document.body.appendChild(rendererFrame);
+  await ready;
+  renderer=rendererFrame.contentWindow;
+  if(!renderer.__stickMotionExportRenderer||typeof renderer.__stickMotionLoadExportScene!=='function')throw new Error('The isolated scene renderer did not initialize.');
+  renderer.__stickMotionExporting=true;
+
+  videoStatus('Preparing episode audio…');
+  const audioBuffer=audioEl.src?await Engine.decodeAudioUrl(audioEl.src):null;
+  const hasSfx=scenes.some((sc,i)=>{
+   const cues=sc.project?.soundEffects||[];
+   return cues.some(cue=>!cue.muted&&Number(cue.frame)>=0&&Number(cue.frame)<frameCounts[i]);
+  });
+  const audioBuffers=(audioBuffer||hasSfx)?Engine.mixEpisodeAudio({
+   audioBuffer,
+   audioOffset:Math.max(0,Number(el('audioOffset').value)||0),
+   scenes,
+   fps
+  }):null;
+
+  let activeSceneIndex=-1,sceneStartFrame=0,localFrame=0,hasPrevious=false;
+  const starts=[];let cursor=0;
+  frameCounts.forEach(count=>{starts.push(cursor);cursor+=count});
+  const drawFittedScene=(source,scene)=>{
+   sceneCtx.clearRect(0,0,width,height);
+   sceneCtx.fillStyle='#000';
+   sceneCtx.fillRect(0,0,width,height);
+   const scale=Math.min(width/source.width,height/source.height);
+   const drawWidth=source.width*scale,drawHeight=source.height*scale;
+   sceneCtx.drawImage(source,(width-drawWidth)/2,(height-drawHeight)/2,drawWidth,drawHeight);
+  };
+  const renderFrame=async globalFrame=>{
+   let sceneIndex=activeSceneIndex;
+   while(sceneIndex+1<starts.length&&globalFrame>=starts[sceneIndex+1])sceneIndex++;
+   if(sceneIndex!==activeSceneIndex){
+    activeSceneIndex=sceneIndex;
+    sceneStartFrame=starts[sceneIndex];
+    localFrame=globalFrame-sceneStartFrame;
+    await renderer.__stickMotionLoadExportScene(scenes[sceneIndex].project);
+   }else localFrame=globalFrame-sceneStartFrame;
+   const scene=scenes[sceneIndex];
+   const source=renderer.__stickMotionRenderExportFrame(localFrame);
+   drawFittedScene(source,scene);
+   const transitionFrames=sceneIndex===0?0:Math.min(frameCounts[sceneIndex],Math.ceil(Math.max(0,Math.min(5,Number(scene.transitionDuration)||0))*fps));
+   if(sceneIndex>0&&localFrame<transitionFrames&&hasPrevious){
+    const progress=transitionFrames<=1?1:(localFrame+1)/transitionFrames;
+    outputCtx.clearRect(0,0,width,height);
+    outputCtx.drawImage(previousCanvas,0,0);
+    if(scene.transition==='fade'){
+     outputCtx.save();outputCtx.globalAlpha=progress;outputCtx.drawImage(sceneCanvas,0,0);outputCtx.restore();
+    }else if(scene.transition==='wipe'){
+     outputCtx.save();outputCtx.beginPath();outputCtx.rect(0,0,width*progress,height);outputCtx.clip();outputCtx.drawImage(sceneCanvas,0,0);outputCtx.restore();
+    }else outputCtx.drawImage(sceneCanvas,0,0);
+   }else{
+    outputCtx.clearRect(0,0,width,height);
+    outputCtx.drawImage(sceneCanvas,0,0);
    }
-   await renderSceneAt(sc,count-1);
-   prevFrame=await createImageBitmap(c);
-  }
-  // Allow MediaRecorder to flush the last canvas frame and data chunk.
-  await delay(500);
-  if(recorder.state==='recording'&&typeof recorder.requestData==='function')recorder.requestData();
-  await delay(250);
-  recorder.stop();await finished;
-  const blob=new Blob(chunks,{type:mime});
-  if(!blob.size)throw new Error('Empty episode video (chunks='+chunks.length+', dataEvents='+recorderDataEvents+', requestedFrames='+requestedFrames+', track='+videoTrack?.readyState+', muted='+videoTrack?.muted+', settings='+JSON.stringify(videoTrack?.getSettings?.())+', canvas='+c.width+'x'+c.height+', mime='+recorder.mimeType+')');
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='stickmotion-full-episode.webm';a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),30000);
-  videoStatus('Full episode exported · '+(blob.size/1048576).toFixed(1)+' MB');
+   if(localFrame===frameCounts[sceneIndex]-1){
+    previousCtx.clearRect(0,0,width,height);
+    previousCtx.drawImage(outputCanvas,0,0);
+    hasPrevious=true;
+   }
+  };
+
+  const blob=await Engine.encode({
+   canvas:outputCanvas,
+   fps,
+   frameCount:totalFrames,
+   bitrate:exportVideoBitrate(),
+   audioBuffers,
+   renderFrame,
+   onProgress:(progress,done,total)=>videoStatus('Encoding episode '+Math.round(progress*100)+'% · '+done+'/'+total+' frames')
+  });
+  videoStatus('Verifying the finished WebM…');
+  downloadUrl=URL.createObjectURL(blob);
+  probeVideo=document.createElement('video');
+  probeVideo.preload='auto';probeVideo.muted=true;
+  const metadataReady=new Promise((resolve,reject)=>{
+   probeVideo.addEventListener('loadedmetadata',resolve,{once:true});
+   probeVideo.addEventListener('error',()=>reject(new Error('The exported WebM could not be opened by the browser.')),{once:true});
+  });
+  probeVideo.src=downloadUrl;
+  await metadataReady;
+  if(!probeVideo.videoWidth||!probeVideo.videoHeight)throw new Error('The exported WebM has no decodable video track.');
+  if(Math.abs(probeVideo.duration-expectedDuration)>Math.max(.15,2/fps))throw new Error('The exported video duration does not match the episode timeline.');
+  const seeked=new Promise((resolve,reject)=>{
+   probeVideo.addEventListener('seeked',resolve,{once:true});
+   probeVideo.addEventListener('error',()=>reject(new Error('The exported WebM could not seek to a decoded frame.')),{once:true});
+  });
+  probeVideo.currentTime=Math.min(.5,Math.max(0,probeVideo.duration/2));
+  await seeked;
+  const verifyCanvas=document.createElement('canvas');
+  verifyCanvas.width=probeVideo.videoWidth;verifyCanvas.height=probeVideo.videoHeight;
+  const verifyCtx=verifyCanvas.getContext('2d');
+  verifyCtx.drawImage(probeVideo,0,0);
+  const pixel=verifyCtx.getImageData(Math.floor(verifyCanvas.width/2),Math.floor(verifyCanvas.height/2),1,1).data;
+  if(pixel[3]!==255)throw new Error('The exported WebM did not decode a video frame.');
+  const MB=await Engine.loadMediabunny();
+  const input=new MB.Input({source:new MB.BlobSource(blob),formats:MB.ALL_FORMATS});
+  const videoTrack=await input.getPrimaryVideoTrack();
+  const audioTrack=await input.getPrimaryAudioTrack();
+  if(!videoTrack)throw new Error('The finished WebM is missing its video track.');
+  if((audioBuffer||hasSfx)&&!audioTrack)throw new Error('The finished WebM is missing the episode audio track.');
+  const link=document.createElement('a');
+  link.href=downloadUrl;link.download='stickmotion-full-episode.webm';link.click();
+  videoStatus('Full episode exported and verified · '+(blob.size/1048576).toFixed(1)+' MB');
  }catch(err){
-  if(recorder&&recorder.state!=='inactive')recorder.stop();
   videoStatus('Episode export failed: '+(err?.message||String(err)));
  }finally{
-  window.__stickMotionExporting=false;
-  audioEl.pause();
-  activeSceneId=savedSceneId;
-  loadProjectState(savedState);
-  el('sceneDuration').value=savedDuration;el('sceneTransition').value=savedTransition;el('transitionDuration').value=savedTransitionDuration;
-  if(prevFrame)prevFrame.close();
-  stream.getTracks().forEach(t=>t.stop());
-  refreshSceneSelect();
+  if(probeVideo){probeVideo.pause();probeVideo.removeAttribute('src');probeVideo.load()}
+  if(downloadUrl)setTimeout(()=>URL.revokeObjectURL(downloadUrl),30000);
+  if(rendererFrame)rendererFrame.remove();
  }
 };
 
@@ -1362,7 +1418,7 @@ const sfxRefreshBeforeReleaseAutosave=sfxRefresh;
 sfxRefresh=function(){
  sfxRefreshBeforeReleaseAutosave();
  if(typeof queueAutosave==='function')queueAutosave();
- if(typeof activeSceneId!=='undefined'&&activeSceneId&&typeof saveActiveScene==='function'&&typeof persistScenes==='function'){
+ if(!window.__stickMotionExportRenderer&&typeof activeSceneId!=='undefined'&&activeSceneId&&typeof saveActiveScene==='function'&&typeof persistScenes==='function'){
   saveActiveScene();
   persistScenes();
  }
@@ -1374,6 +1430,28 @@ try{
  const savedAfterExtensions=localStorage.getItem(PROJECT_KEY);
  if(savedAfterExtensions)loadProjectState(JSON.parse(savedAfterExtensions));
 }catch(err){console.warn('Could not restore extended project data',err)}
+
+/* Isolated renderer API used by the episode export iframe. */
+window.__stickMotionLoadExportScene = async state => {
+ loadProjectState(state);
+ const pending = parts.map(part => part.img).filter(img => img && !img.complete);
+ if (pending.length) {
+  await Promise.race([
+   Promise.all(pending.map(img => new Promise((resolve,reject) => {
+    img.addEventListener('load',resolve,{once:true});
+    img.addEventListener('error',()=>reject(new Error('A scene artwork image could not be loaded.')),{once:true});
+   }))),
+   new Promise((_,reject)=>setTimeout(()=>reject(new Error('Timed out waiting for scene artwork.')),15000))
+  ]);
+ }
+ return {width:c.width,height:c.height};
+};
+window.__stickMotionRenderExportFrame = f => {
+ frame=Math.max(0,Math.min(120,Number(f)||0));
+ applyKey(frame);
+ draw();
+ return c;
+};
 
 
 </script></body></html>
