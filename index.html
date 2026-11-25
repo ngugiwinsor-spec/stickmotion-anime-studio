@@ -202,9 +202,9 @@ function effectivelyVisible(i){let guard=new Set();while(i>=0&&i<parts.length&&!
 function worldOpacity(i){let alpha=1,guard=new Set();while(i>=0&&i<parts.length&&!guard.has(i)){guard.add(i);alpha*=Number(parts[i].opacity??1);i=parts[i].parent??-1}return alpha}
 function reorderParts(from,to){
  if(from<0||to<0||from>=parts.length||to>=parts.length||from===to)return;
- const parentObjects=parts.map(p=>p.parent>=0?parts[p.parent]:null);
+ const parentObjects=new Map(parts.map(p=>[p,p.parent>=0?parts[p.parent]:null]));
  const moved=parts.splice(from,1)[0];parts.splice(to,0,moved);
- parts.forEach((p,i)=>{const parent=parentObjects[i];p.parent=parent?parts.indexOf(parent):-1});
+ parts.forEach(p=>{const parent=parentObjects.get(p);p.parent=parent?parts.indexOf(parent):-1});
  sel=to;renderLayers();syncControls();refreshParentMenu();draw();pushHistory();
 }
 el('up').onclick=()=>{if(sel>0)reorderParts(sel,sel-1)};
