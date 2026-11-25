@@ -26,7 +26,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <section><h3>Project</h3><label>Canvas preset</label><select id="preset"><option value="1920,1080">16:9 — 1920×1080</option><option value="1080,1920">9:16 — 1080×1920</option><option value="1080,1080">1:1 — 1080×1080</option><option value="1280,720">HD — 1280×720</option></select><label>Background</label><input id="bg" type="color" value="#222b3c"><div class="row" style="margin-top:8px"><button id="toggleBg">Transparent</button><button id="reset">Reset scene</button></div></section>
 </aside>
 <div class="stage-area">
-<div class="stage-tools"><button id="center">Center selected</button><button id="fit">Fit view</button><button id="exportPng" class="primary">Export PNG</button><button id="undo">↶ Undo</button><button id="redo">↷ Redo</button><button id="saveProject">Save project</button><button id="loadProject">Open project</button><input id="projectFile" type="file" accept=".json,application/json" class="hidden"><button id="exportJson">Rig JSON</button><button id="importJson">Import Rig</button><input id="jsonFile" type="file" accept=".json" class="hidden"></div>
+<div class="stage-tools"><button id="center">Center selected</button><button id="fit">Fit view</button><button id="exportPng" class="primary">Export PNG</button><button id="exportVideo" class="primary">Export video</button><span id="videoStatus" class="small">WebM video export</span><button id="undo">↶ Undo</button><button id="redo">↷ Redo</button><button id="saveProject">Save project</button><button id="loadProject">Open project</button><input id="projectFile" type="file" accept=".json,application/json" class="hidden"><button id="exportJson">Rig JSON</button><button id="importJson">Import Rig</button><input id="jsonFile" type="file" accept=".json" class="hidden"></div>
 <div class="canvas-wrap"><canvas id="stage" width="1280" height="720"></canvas></div>
 <div class="timeline"><div class="timeline-head"><strong>Animation timeline</strong><div class="row" style="flex:0 0 auto"><button id="capture" class="primary">● Capture key</button><button id="play">▶ Play</button><button id="deleteKey">Delete key</button><button id="clearKeys" class="danger">Clear keys</button></div></div><label>Frame <span id="frameLabel">0</span> / 120</label><input id="frame" type="range" min="0" max="120" value="0"><label>Interpolation</label><select id="easing"><option value="linear">Linear</option><option value="ease">Smooth ease-in/out</option><option value="easeOut">Ease out</option><option value="easeIn">Ease in</option><option value="hold">Hold previous pose</option></select><div class="frames" id="frames"></div><div class="small">Capture a pose at a frame, move to another frame, change the pose, and capture again. Playback interpolates between captured poses.</div></div>
 <section class="timeline" id="audioPanel"><div class="timeline-head"><strong>Audio & dialogue · v4.7</strong><span class="small" id="audioStatus">No audio loaded</span></div><label>Import dialogue, voice or music</label><input id="audioFile" type="file" accept="audio/*"><div class="row" style="margin-top:8px"><button id="audioPlay" class="primary">▶ Play audio</button><button id="audioStop">■ Stop</button><button id="audioClear" class="danger">Remove audio</button></div><label>Frame rate</label><select id="audioFps"><option value="24">24 FPS · Anime standard</option><option value="25">25 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option></select><label>Audio start offset (seconds)</label><input id="audioOffset" type="number" min="0" step=".05" value="0"><div class="row"><button id="audioSync">Sync current frame to audio</button><button id="autoLip" class="primary">Enable auto lip-sync</button></div><div class="hint">Audio playback follows the timeline frame rate. Auto lip-sync uses the imported audio's volume to animate the mouth while audio plays. Clean voice recordings work best. Re-import audio after reopening a project.</div><audio id="dialogueAudio" preload="auto" style="width:100%;margin-top:10px"></audio></section>
@@ -321,5 +321,74 @@ try{const d=JSON.parse(localStorage.getItem(SCENE_KEY)||'null');if(d?.scenes?.le
 let sceneAutosaveTimer=null;
 const drawBeforeSceneAutosave=draw;
 draw=function(){drawBeforeSceneAutosave();if(activeSceneId){clearTimeout(sceneAutosaveTimer);sceneAutosaveTimer=setTimeout(()=>{saveActiveScene();persistScenes()},1200)}};
+
+/* v4.9: real-time browser video rendering for the active scene */
+const videoStatus=msg=>{const n=el('videoStatus');if(n)n.textContent=msg};
+function supportedVideoMime(){
+ const types=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+ return types.find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||'';
+}
+el('exportVideo').onclick=async()=>{
+ const mime=supportedVideoMime();
+ if(!c.captureStream||!window.MediaRecorder||!mime){
+  videoStatus('Video export unsupported in this browser');return;
+ }
+ if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play'}
+ const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
+ const seconds=Math.max(1,Math.min(120,Number(el('sceneDuration').value)||5));
+ const totalFrames=Math.min(120,Math.ceil(seconds*fps));
+ const originalFrame=frame,originalAudioTime=audioEl.currentTime;
+ const stream=c.captureStream(fps);
+ let audioStream=null;
+ try{
+  if(audioEl.src&&typeof audioEl.captureStream==='function'){
+   audioStream=audioEl.captureStream();
+   audioStream.getAudioTracks().forEach(t=>stream.addTrack(t));
+  }
+  const chunks=[];
+  const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  const finished=new Promise((resolve,reject)=>{
+   recorder.onstop=resolve;recorder.onerror=e=>reject(e.error||new Error('Recording failed'));
+  });
+  recorder.start(250);
+  videoStatus('Rendering 0%');
+  if(audioStream&&audioEl.src){
+   const offset=Math.max(0,Number(el('audioOffset').value)||0);
+   audioEl.currentTime=Math.min(offset,audioEl.duration||offset);
+   await audioEl.play().catch(()=>{});
+  }
+  const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const started=performance.now();
+  for(let i=0;i<=totalFrames;i++){
+   frame=Math.min(120,i);
+   el('frame').value=frame;el('frameLabel').textContent=frame;
+   applyKey(frame);draw();renderFrames();
+   videoStatus('Rendering '+Math.round(i/totalFrames*100)+'%');
+   if(i<totalFrames){
+    const target=started+(i+1)*1000/fps;
+    await delay(Math.max(0,target-performance.now()));
+   }
+  }
+  recorder.stop();
+  await finished;
+  const blob=new Blob(chunks,{type:mime});
+  if(!blob.size)throw new Error('The browser produced an empty video');
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='stickmotion-scene.webm';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  videoStatus('Video exported · '+(blob.size/1048576).toFixed(1)+' MB');
+ }catch(err){
+  if(typeof recorder!=='undefined'&&recorder.state!=='inactive')recorder.stop();
+  videoStatus('Export failed — try a shorter scene');
+ }finally{
+  audioEl.pause();
+  if(audioEl.src&&Number.isFinite(originalAudioTime))audioEl.currentTime=originalAudioTime;
+  frame=originalFrame;el('frame').value=frame;el('frameLabel').textContent=frame;
+  applyKey(frame);draw();renderFrames();
+  stream.getTracks().forEach(t=>t.stop());
+ }
+};
+
 
 </script></body></html>
