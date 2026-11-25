@@ -670,3 +670,67 @@ test('diagnostic: Chromium can record standalone canvas video', async ({ page })
  const result=await page.evaluate(async()=>{const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;const ctx=canvas.getContext('2d');const stream=canvas.captureStream(24);const chunks=[];const recorder=new MediaRecorder(stream,{mimeType:'video/webm'});recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};const stopped=new Promise(resolve=>recorder.onstop=resolve);recorder.start(100);for(let i=0;i<24;i++){ctx.fillStyle=i%2?'#f00':'#00f';ctx.fillRect(0,0,320,180);await new Promise(r=>setTimeout(r,42));}await new Promise(r=>setTimeout(r,300));recorder.stop();await stopped;const blob=new Blob(chunks,{type:recorder.mimeType});const out={size:blob.size,chunks:chunks.length,track:stream.getVideoTracks()[0].readyState,mime:recorder.mimeType};stream.getTracks().forEach(t=>t.stop());return out;});
  console.log('CANVAS_RECORDER_DIAGNOSTIC',JSON.stringify(result));expect(result.size).toBeGreaterThan(0);
 });
+
+
+test('diagnostic: episode recorder lifecycle isolates canvas reset and audio track', async ({ page }) => {
+  await page.goto('/');
+  const results = await page.evaluate(async () => {
+    const run = async ({ resetCanvas, withAudio, recorderBeforeReset }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 320; canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      const stream = canvas.captureStream(0);
+      let audioContext, destination;
+      if (withAudio) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        destination = audioContext.createMediaStreamDestination();
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        gain.gain.value = 0;
+        oscillator.connect(gain).connect(destination);
+        oscillator.start();
+        if (audioContext.state === 'suspended') await audioContext.resume();
+        destination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+      }
+      const chunks = [];
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise(resolve => recorder.onstop = resolve);
+      if (recorderBeforeReset) recorder.start(200);
+      if (resetCanvas) { canvas.width = 320; canvas.height = 180; }
+      if (!recorderBeforeReset) recorder.start(200);
+      const track = stream.getVideoTracks()[0];
+      for (let i=0;i<24;i++) {
+        ctx.fillStyle = i%2 ? '#e22' : '#26c';
+        ctx.fillRect(0,0,320,180);
+        if (track.requestFrame) track.requestFrame();
+        await new Promise(resolve => setTimeout(resolve, 42));
+      }
+      await new Promise(resolve => setTimeout(resolve, 350));
+      if (recorder.requestData) recorder.requestData();
+      await new Promise(resolve => setTimeout(resolve, 150));
+      recorder.stop(); await stopped;
+      const result = {
+        resetCanvas, withAudio, recorderBeforeReset,
+        bytes: chunks.reduce((n,b)=>n+b.size,0), chunks: chunks.length,
+        videoState: track.readyState, videoMuted: track.muted,
+        settings: track.getSettings(), recorderState: recorder.state,
+        audioState: audioContext?.state || null,
+        audioTracks: stream.getAudioTracks().length
+      };
+      stream.getTracks().forEach(t=>t.stop());
+      if (audioContext) await audioContext.close();
+      return result;
+    };
+    const results = [];
+    for (const resetCanvas of [false,true]) {
+      for (const withAudio of [false,true]) {
+        results.push(await run({resetCanvas,withAudio,recorderBeforeReset:true}));
+      }
+    }
+    results.push(await run({resetCanvas:true,withAudio:false,recorderBeforeReset:false}));
+    return results;
+  });
+  console.log('EPISODE_LIFECYCLE_MATRIX', JSON.stringify(results));
+  expect(results).toHaveLength(5);
+});
