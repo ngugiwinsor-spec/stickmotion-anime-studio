@@ -455,8 +455,7 @@ test('muted sound cues can be removed without deleting active cues', async ({ pa
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.locator('#addSfxCue').click();
-  await page.locator('#frame').fill('12');
-  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#frame').evaluate(input => { input.value = '12'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.locator('#addSfxCue').click();
   await page.getByRole('button', { name: 'Mute sound cue at frame 0' }).click();
   await expect(page.locator('#sfxStatus')).toContainText('2 cues');
