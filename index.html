@@ -19,7 +19,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:500px){ .timeline-head{min-width:0;flex-wrap:wrap}.timeline-head>.row{flex:1 1 100%!important;width:100%;min-width:0}.timeline-head>.row button{flex:1 1 120px;min-width:0}header{flex-wrap:wrap;gap:8px;padding:10px 12px}header>.small{display:none}.logo{font-size:14px}main{grid-template-columns:minmax(0,1fr);min-width:0;width:100%}main>*,aside,.stage-area{min-width:0;max-width:100%}input,select,button{max-width:100%}.stage-area{padding:8px}.stage-tools{min-width:0}.stage-tools>*{max-width:100%}.canvas-wrap{min-width:0}.timeline{min-width:0}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.26 • Batch Cue Volume</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.27 • Frame-Accurate Playback</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -139,8 +139,64 @@ function easingProgress(t,mode){
  return t;
 }
 function applyKey(f){let ks=Object.keys(keys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let prev=ks.filter(k=>k<=f).pop(),next=ks.find(k=>k>=f);if(prev===undefined)prev=ks[0];if(next===undefined)next=ks[ks.length-1];let t=next===prev?0:(f-prev)/(next-prev);const mode=el('easing')?.value||'linear';t=easingProgress(t,mode);keys[prev].forEach((s,i)=>{if(!parts[i])return;let a=s,b=keys[next][i]||a;for(let q of ['x','y','rot','scale','opacity'])parts[i][q]=a[q]+(b[q]-a[q])*t});syncControls()}
-function renderFrames(){el('frames').innerHTML='';for(let i=0;i<=120;i+=5){let b=document.createElement('button');b.className='frame'+(i===frame?' active':'');b.textContent=i+(keys[i]?'◆':'');b.onclick=()=>{frame=i;el('frame').value=i;el('frameLabel').textContent=i;applyKey(i);renderFrames();draw()};el('frames').append(b)}}
-el('play').onclick=()=>{if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play';return}playing=true;el('play').textContent='❚❚ Pause';playTimer=setInterval(()=>{frame=(frame+1)%121;el('frame').value=frame;el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()},100)};
+function renderFrames(){
+ const host=el('frames');
+ if(host.children.length!==25){
+  host.innerHTML='';
+  for(let i=0;i<=120;i+=5){
+   const frameNumber=i;
+   const button=document.createElement('button');
+   button.className='frame';
+   button.onclick=()=>{frame=frameNumber;el('frame').value=frame;el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()};
+   host.append(button);
+  }
+ }
+ for(let i=0;i<=120;i+=5){
+  const button=host.children[i/5];
+  button.className='frame'+(i===frame?' active':'');
+  button.textContent=i+(keys[i]?'◆':'');
+ }
+}
+function stopTimelinePlayback(){
+ playing=false;
+ if(playTimer!==null){cancelAnimationFrame(playTimer);playTimer=null}
+ el('play').textContent='▶ Play';
+}
+function startTimelinePlayback(){
+ if(playing)return;
+ playing=true;
+ el('play').textContent='❚❚ Pause';
+ let lastTimestamp=null,accumulator=0;
+ const tick=timestamp=>{
+  if(!playing)return;
+  if(lastTimestamp===null)lastTimestamp=timestamp;
+  const elapsed=Math.min(250,Math.max(0,timestamp-lastTimestamp));
+  lastTimestamp=timestamp;
+  // Imported audio is the master clock while it is playing. Otherwise advance
+  // the timeline at the selected project frame rate using elapsed RAF time.
+  if(audioEl.paused){
+   const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
+   const frameDuration=1000/fps;
+   accumulator=Math.min(frameDuration*4,accumulator+elapsed);
+   let advanced=0;
+   while(accumulator>=frameDuration){
+    frame=(frame+1)%121;
+    accumulator-=frameDuration;
+    advanced++;
+   }
+   if(advanced){
+    el('frame').value=frame;
+    el('frameLabel').textContent=frame;
+    applyKey(frame);
+    renderFrames();
+    draw();
+   }
+  }
+  playTimer=requestAnimationFrame(tick);
+ };
+ playTimer=requestAnimationFrame(tick);
+}
+el('play').onclick=()=>{if(playing){stopTimelinePlayback();return}startTimelinePlayback()};
 el('deleteKey').onclick=()=>{delete keys[frame];renderFrames();draw();pushHistory()};el('clearKeys').onclick=()=>{keys={};renderFrames();draw();pushHistory()};
 el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'4.1',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},parts:parts.map(({img,...p})=>({...p,src:null})),keyframes:keys};download(JSON.stringify(data,null,2),'stickmotion-rig.json','application/json')};
 el('importJson').onclick=()=>el('jsonFile').click();el('jsonFile').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let d=JSON.parse(await f.text());alert('Rig settings imported. Image files must be re-imported separately; this JSON stores their layer settings.');parts=d.parts||[];keys=d.keyframes||{};c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);renderFrames();draw()}catch(err){alert('Invalid JSON file')}};
@@ -941,7 +997,7 @@ el('exportVideo').onclick=async()=>{
  if(!c.captureStream||!window.MediaRecorder||!mime){
   videoStatus('Video export unsupported in this browser');return;
  }
- if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play'}
+ if(playing){playing=false;if(playTimer!==null)cancelAnimationFrame(playTimer);playTimer=null;el('play').textContent='▶ Play'}
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
  const seconds=Math.max(1,Math.min(120,Number(el('sceneDuration').value)||5));
  const totalFrames=Math.ceil(seconds*fps);
