@@ -538,3 +538,29 @@ test('sound cues can be grouped by effect type and frame', async ({ page }) => {
   await expect(page.locator('#sfxStatus')).toHaveText('Grouped 4 sound cues by type');
   expect(errors).toEqual([]);
 });
+
+
+test('all sound cue volumes can be changed together while preserving cue settings', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#frame').fill('18');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#sfxType').selectOption('whoosh');
+  await page.locator('#addSfxCue').click();
+  await page.getByRole('button', { name: 'Mute sound cue at frame 0' }).click();
+  await page.getByRole('button', { name: 'Save sound cue at frame 18' }).click();
+  await page.locator('#allSfxVolume').fill('45');
+  await page.locator('#setAllSfxVolumes').click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => ({frame:c.frame,type:c.type,volume:c.volume,muted:c.muted})))).toEqual([
+    {frame:0,type:'impact',volume:45,muted:true},
+    {frame:18,type:'whoosh',volume:45,muted:false}
+  ]);
+  await expect(page.locator('#sfxStatus')).toHaveText('Set volume to 45% for 2 sound cues');
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  expect(saved.soundEffects.map(c => c.volume)).toEqual([45,45]);
+  await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([45,45]);
+  expect(errors).toEqual([]);
+});
