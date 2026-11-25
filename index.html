@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.0 • Episode Rendering</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.3 • Animation Library</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -28,7 +28,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="stage-area">
 <div class="stage-tools"><button id="center">Center selected</button><button id="fit">Fit view</button><button id="exportPng" class="primary">Export PNG</button><button id="exportVideo" class="primary">Export video</button><button id="exportEpisodeVideo" class="primary">Export full episode</button><span id="videoStatus" class="small">WebM video export</span><button id="undo">↶ Undo</button><button id="redo">↷ Redo</button><button id="saveProject">Save project</button><button id="loadProject">Open project</button><input id="projectFile" type="file" accept=".json,application/json" class="hidden"><button id="exportJson">Rig JSON</button><button id="importJson">Import Rig</button><input id="jsonFile" type="file" accept=".json" class="hidden"></div>
 <div class="canvas-wrap"><canvas id="stage" width="1280" height="720"></canvas></div>
-<div class="timeline"><div class="timeline-head"><strong>Animation timeline</strong><div class="row" style="flex:0 0 auto"><button id="capture" class="primary">● Capture key</button><button id="play">▶ Play</button><button id="deleteKey">Delete key</button><button id="clearKeys" class="danger">Clear keys</button></div></div><label>Frame <span id="frameLabel">0</span> / 120</label><input id="frame" type="range" min="0" max="120" value="0"><label>Interpolation</label><select id="easing"><option value="linear">Linear</option><option value="ease">Smooth ease-in/out</option><option value="easeOut">Ease out</option><option value="easeIn">Ease in</option><option value="hold">Hold previous pose</option></select><div class="frames" id="frames"></div><div class="small">Capture a pose at a frame, move to another frame, change the pose, and capture again. Playback interpolates between captured poses.</div><div class="timeline-head" style="margin-top:12px"><strong>Motion actions</strong><span class="small">Generate reusable keyframes</span></div><div class="row"><select id="motionPreset" style="flex:1"><option value="idle">Idle / breathing</option><option value="walk">Walk cycle</option><option value="run">Run cycle</option><option value="jump">Jump</option></select><button id="generateMotion" class="primary">Generate action</button></div><div class="small" id="motionStatus">Name layers clearly (Head, Torso, Left Arm, Right Leg) for best results. Generated poses replace keys at the generated frames.</div></div>
+<div class="timeline"><div class="timeline-head"><strong>Animation timeline</strong><div class="row" style="flex:0 0 auto"><button id="capture" class="primary">● Capture key</button><button id="play">▶ Play</button><button id="deleteKey">Delete key</button><button id="clearKeys" class="danger">Clear keys</button></div></div><label>Frame <span id="frameLabel">0</span> / 120</label><input id="frame" type="range" min="0" max="120" value="0"><label>Interpolation</label><select id="easing"><option value="linear">Linear</option><option value="ease">Smooth ease-in/out</option><option value="easeOut">Ease out</option><option value="easeIn">Ease in</option><option value="hold">Hold previous pose</option></select><div class="frames" id="frames"></div><div class="small">Capture a pose at a frame, move to another frame, change the pose, and capture again. Playback interpolates between captured poses.</div><div class="timeline-head" style="margin-top:12px"><strong>Motion actions</strong><span class="small">Generate reusable keyframes</span></div><div class="row"><select id="motionPreset" style="flex:1"><option value="idle">Idle / breathing</option><option value="walk">Walk cycle</option><option value="run">Run cycle</option><option value="jump">Jump</option></select><button id="generateMotion" class="primary">Generate action</button></div><div class="small" id="motionStatus">Name layers clearly (Head, Torso, Left Arm, Right Leg) for best results. Generated poses replace keys at the generated frames.</div><label>Animation action name</label><input id="motionName" type="text" placeholder="e.g. Heroic idle"><div class="row"><button id="saveMotionAction">Save action</button><button id="exportMotionAction">Export action</button><button id="importMotionAction">Import action</button><input id="motionActionFile" type="file" accept=".json,application/json" class="hidden"></div><label>Saved action library</label><select id="motionLibrary"></select><div class="row"><button id="applyMotionAction" class="primary">Apply saved action</button><button id="deleteMotionAction" class="danger">Delete</button></div></div>
 <section class="timeline" id="audioPanel"><div class="timeline-head"><strong>Audio & dialogue · v4.7</strong><span class="small" id="audioStatus">No audio loaded</span></div><label>Import dialogue, voice or music</label><input id="audioFile" type="file" accept="audio/*"><div class="row" style="margin-top:8px"><button id="audioPlay" class="primary">▶ Play audio</button><button id="audioStop">■ Stop</button><button id="audioClear" class="danger">Remove audio</button></div><label>Frame rate</label><select id="audioFps"><option value="24">24 FPS · Anime standard</option><option value="25">25 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option></select><label>Audio start offset (seconds)</label><input id="audioOffset" type="number" min="0" step=".05" value="0"><div class="row"><button id="audioSync">Sync current frame to audio</button><button id="autoLip" class="primary">Enable auto lip-sync</button></div><div class="hint">Audio playback follows the timeline frame rate. Auto lip-sync uses the imported audio's volume to animate the mouth while audio plays. Clean voice recordings work best. Re-import audio after reopening a project.</div><audio id="dialogueAudio" preload="auto" style="width:100%;margin-top:10px"></audio></section>
 <section class="timeline" id="scenePanel"><div class="timeline-head"><strong>Scenes & transitions · v5.0</strong><span class="small" id="sceneStatus">1 scene</span></div><div class="row"><button id="sceneAdd" class="primary">＋ New scene</button><button id="sceneDuplicate">Duplicate</button><button id="sceneDelete" class="danger">Delete</button></div><label>Current scene</label><select id="sceneSelect"></select><div class="row"><label style="flex:1">Scene duration (seconds)<input id="sceneDuration" type="number" min="1" max="120" value="5"></label><label style="flex:1">Transition<select id="sceneTransition"><option value="cut">Cut</option><option value="fade">Fade</option><option value="wipe">Wipe</option></select></label></div><label>Transition duration (seconds)</label><input id="transitionDuration" type="number" min="0" max="5" step=".1" value=".5"><div class="row"><button id="sceneSave">Save current scene</button><button id="sceneExport" class="primary">Export episode plan</button><button id="sceneImport">Import plan</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div><div class="hint">Each scene stores its own artwork, rig, keyframes, facial acting and camera. Export an episode plan to keep all scenes together. Export an entire episode as WebM. Cut, fade and wipe transitions are composited during episode rendering.</div></section>
 </div>
@@ -47,13 +47,13 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="row"><button data-pivot="hip">Hip</button><button data-pivot="knee">Knee</button><button data-pivot="ankle">Ankle</button></div>
 <div class="hint">Attach limbs to a torso or upper limb to create a parent-child rig. Child parts inherit parent rotation and position. Set the pivot at the joint for natural rotation.</div></section>
 <section id="ikPanel"><h3>Inverse kinematics · v5.2</h3>
-<div class="hint">Choose a three-part chain: upper limb (root), lower limb (middle), and hand/foot (end). The root must be attached to the character body or be a root layer. The solver adjusts the two joint angles to reach a stage position.</div>
+<div class="hint">Choose a three-part chain: upper limb (root), lower limb (middle), and hand/foot (end). The root must be an unparented layer for this solver. The solver adjusts the two joint angles to reach a stage position.</div>
 <label>Root / upper limb</label><select id="ikRoot"></select>
 <label>Middle / lower limb</label><select id="ikMiddle"></select>
 <label>End / hand or foot</label><select id="ikEnd"></select>
 <div class="row"><label style="flex:1">Target X<input id="ikX" type="number" value="180" step="1"></label><label style="flex:1">Target Y<input id="ikY" type="number" value="80" step="1"></label></div>
-<div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
-<div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Root part must have no parent for this first solver.</div></section>
+<div class="row"><button id="ikAuto">Auto-detect chain</button></div><div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
+<div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Use Auto-detect after naming and attaching your limb parts. The root must be unparented.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
 <section id="facePanel"><h3>Facial animation · v4.4</h3>
 <label>Face target (select the head layer first)</label><div id="faceTargetName" class="small">No head selected</div>
@@ -338,6 +338,19 @@ function refreshIKMenus(){
   if(parts[Number(old)])q.value=old;
  });
 }
+function autoDetectIK(){
+ const find=(re)=>parts.findIndex(p=>re.test(String(p.name||'').toLowerCase()));
+ const roots=parts.map((p,i)=>({p,i})).filter(x=>(x.p.parent??-1)===-1);
+ const root=roots.find(x=>/upper.?arm|arm.?upper|thigh|upper.?leg/.test(String(x.p.name||'').toLowerCase()));
+ if(!root){ikStatus('Name an unparented layer Upper Arm or Thigh, then attach Forearm/Shin and Hand/Foot beneath it.');return}
+ const mid=parts.findIndex((p)=>p.parent===root.i&&/forearm|lower.?arm|shin|calf|lower.?leg/.test(String(p.name||'').toLowerCase()));
+ if(mid<0){ikStatus('Could not find a child named Forearm, Lower Arm, Shin or Calf.');return}
+ const end=parts.findIndex((p)=>p.parent===mid&&/hand|foot/.test(String(p.name||'').toLowerCase()));
+ if(end<0){ikStatus('Could not find a child named Hand or Foot beneath the lower limb.');return}
+ el('ikRoot').value=String(root.i);el('ikMiddle').value=String(mid);el('ikEnd').value=String(end);
+ ikStatus('Detected '+root.p.name+' → '+parts[mid].name+' → '+parts[end].name+'. Adjust the target and solve.');
+}
+el('ikAuto').onclick=autoDetectIK;
 const ikStatus=msg=>{el('ikStatus').textContent=msg};
 function solveIK(capture){
  const ri=Number(el('ikRoot').value),mi=Number(el('ikMiddle').value),ei=Number(el('ikEnd').value);
@@ -404,6 +417,61 @@ el('generateMotion').onclick=()=>{
  applyKey(0);renderFrames();draw();pushHistory();
  motionStatus(preset.toUpperCase()+' action generated · 9 key poses · review and adjust the result');
 };
+ 
+/* v5.3: named reusable animation action library */
+const MOTION_LIBRARY_KEY='stickmotion-motion-library-v1';
+let motionLibrary=[];
+function refreshMotionLibrary(selectedId){
+ const q=el('motionLibrary');q.innerHTML='';
+ motionLibrary.forEach((a,i)=>{const o=document.createElement('option');o.value=a.id;o.textContent=a.name||('Action '+(i+1));q.appendChild(o)});
+ if(selectedId)q.value=selectedId;
+}
+function persistMotionLibrary(){
+ try{localStorage.setItem(MOTION_LIBRARY_KEY,JSON.stringify(motionLibrary));refreshMotionLibrary()}
+ catch(e){motionStatus('Could not save library — browser storage may be full')}
+}
+function currentActionData(name){
+ const frames={};Object.keys(keys).forEach(k=>{frames[k]=JSON.parse(JSON.stringify(keys[k]))});
+ return {app:'StickMotion Anime Studio',type:'motion-action',version:'5.3',name,partNames:parts.map(p=>p.name),frames};
+}
+function saveMotionAction(){
+ const name=el('motionName').value.trim();
+ if(!name){motionStatus('Enter a name for this action first');return}
+ const frames=Object.keys(keys);
+ if(!frames.length){motionStatus('Capture or generate keyframes before saving an action');return}
+ const action=currentActionData(name),existing=motionLibrary.find(a=>a.name.toLowerCase()===name.toLowerCase());
+ if(existing){action.id=existing.id;motionLibrary[motionLibrary.indexOf(existing)]=action}
+ else{action.id='action-'+Date.now().toString(36);motionLibrary.push(action)}
+ persistMotionLibrary();el('motionLibrary').value=action.id;
+ motionStatus('Saved "'+name+'" to your local action library');
+}
+function applyMotionAction(action){
+ if(!action||action.type!=='motion-action'||!action.frames||typeof action.frames!=='object'){motionStatus('Choose a valid saved action');return}
+ if(action.partNames&&action.partNames.length!==parts.length){motionStatus('This action was made for a different number of character parts');return}
+ if(action.partNames&&action.partNames.some((n,i)=>n!==parts[i].name)){motionStatus('Part names/order do not match. Import the matching character rig first.');return}
+ Object.keys(action.frames).forEach(k=>{const f=Number(k),pose=action.frames[k];if(Number.isInteger(f)&&f>=0&&f<=120&&Array.isArray(pose)&&pose.length===parts.length)keys[f]=JSON.parse(JSON.stringify(pose))});
+ frame=0;el('frame').value=0;el('frameLabel').textContent='0';applyKey(0);renderFrames();draw();pushHistory();
+ motionStatus('Applied "'+(action.name||'Imported action')+'" · review the timeline and adjust as needed');
+}
+el('saveMotionAction').onclick=saveMotionAction;
+el('applyMotionAction').onclick=()=>applyMotionAction(motionLibrary.find(a=>a.id===el('motionLibrary').value));
+el('deleteMotionAction').onclick=()=>{const i=motionLibrary.findIndex(a=>a.id===el('motionLibrary').value);if(i<0)return;const name=motionLibrary[i].name;motionLibrary.splice(i,1);persistMotionLibrary();motionStatus('Deleted "'+name+'"')};
+el('exportMotionAction').onclick=()=>{
+ const a=motionLibrary.find(x=>x.id===el('motionLibrary').value);
+ if(!a){motionStatus('Select a saved action to export');return}
+ const u=URL.createObjectURL(new Blob([JSON.stringify(a,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=u;link.download=(a.name||'animation-action').toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+};
+el('importMotionAction').onclick=()=>el('motionActionFile').click();
+el('motionActionFile').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{const a=JSON.parse(await file.text());if(a.type!=='motion-action'||!a.frames||typeof a.frames!=='object')throw Error('Invalid action');
+ a.id='action-'+Date.now().toString(36);a.name=a.name||file.name.replace(/\.json$/i,'');motionLibrary.push(a);persistMotionLibrary();el('motionLibrary').value=a.id;motionStatus('Imported "'+a.name+'" — apply it when the matching rig is loaded');
+ }catch(err){motionStatus('Could not import this action JSON')}
+ e.target.value='';
+};
+try{const saved=JSON.parse(localStorage.getItem(MOTION_LIBRARY_KEY)||'[]');if(Array.isArray(saved))motionLibrary=saved.filter(a=>a&&a.type==='motion-action'&&a.frames)}catch(e){motionLibrary=[]}
+refreshMotionLibrary();
+
  
 /* v4.9: real-time browser video rendering for the active scene */
 const videoStatus=msg=>{const n=el('videoStatus');if(n)n.textContent=msg};
