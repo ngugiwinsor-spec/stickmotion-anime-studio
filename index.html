@@ -1312,9 +1312,9 @@ function sfxRefresh(){
  });
 }
 const projectStateBeforeSfx=projectState;
-projectState=function(){return {...projectStateBeforeSfx(),soundEffects:sfxCues.map(x=>({...x}))}};
+projectState=function(){return {...projectStateBeforeSfx(),soundEffects:sfxCues.map(x=>({...x})),soundEffectsVolume:sfxVolume}};
 const loadProjectStateBeforeSfx=loadProjectState;
-loadProjectState=function(state){loadProjectStateBeforeSfx(state);sfxCues=Array.isArray(state?.soundEffects)?state.soundEffects.filter(x=>Number.isFinite(Number(x.frame))&&['impact','whoosh','magic','step','alert'].includes(x.type)).map(x=>({id:x.id||Date.now()+Math.random(),frame:Math.max(0,Math.min(120,Number(x.frame))),type:x.type})):[];sfxRefresh();window.__stickMotionSfxCues=sfxCues};
+loadProjectState=function(state){loadProjectStateBeforeSfx(state);sfxCues=Array.isArray(state?.soundEffects)?state.soundEffects.filter(x=>Number.isFinite(Number(x.frame))&&['impact','whoosh','magic','step','alert'].includes(x.type)).map(x=>({id:x.id||Date.now()+Math.random(),frame:Math.max(0,Math.min(120,Number(x.frame))),type:x.type})):[];if(Number.isFinite(Number(state?.soundEffectsVolume))){sfxVolume=Math.max(0,Math.min(100,Number(state.soundEffectsVolume)));el('sfxVolume').value=sfxVolume;el('sfxVolumeLabel').textContent=sfxVolume+'%';window.__stickMotionSfxVolume=sfxVolume}sfxRefresh();window.__stickMotionSfxCues=sfxCues};
 window.__stickMotionProjectState=()=>projectState();
 window.__stickMotionLoadProjectState=state=>loadProjectState(state);
 
