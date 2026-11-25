@@ -535,6 +535,6 @@ test('sound cues can be grouped by effect type and frame', async ({ page }) => {
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.type,c.frame]))).toEqual([
     ['impact',0],['impact',30],['whoosh',3],['whoosh',9]
   ]);
-  await expect(page.locator('#sfxStatus')).toHaveText('Grouped 3 sound cues by type');
+  await expect(page.locator('#sfxStatus')).toHaveText('Grouped 4 sound cues by type');
   expect(errors).toEqual([]);
 });
