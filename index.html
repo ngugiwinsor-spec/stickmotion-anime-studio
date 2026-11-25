@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v4.3 • Animation Timeline</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v4.4 • Facial Acting + Rigging</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -45,7 +45,16 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="row"><button data-pivot="hip">Hip</button><button data-pivot="knee">Knee</button><button data-pivot="ankle">Ankle</button></div>
 <div class="hint">Attach limbs to a torso or upper limb to create a parent-child rig. Child parts inherit parent rotation and position. Set the pivot at the joint for natural rotation.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
-</aside></main>
+<section id="facePanel"><h3>Facial animation · v4.4</h3>
+<label>Face target (select the head layer first)</label><div id="faceTargetName" class="small">No head selected</div>
+<label>Expression</label><select id="faceExpression"><option value="neutral">Neutral</option><option value="happy">Happy</option><option value="sad">Sad</option><option value="angry">Angry</option><option value="surprised">Surprised</option><option value="determined">Determined</option></select>
+<label>Eye gaze X</label><input id="gazeX" type="range" min="-1" max="1" step=".05" value="0">
+<label>Eye gaze Y</label><input id="gazeY" type="range" min="-1" max="1" step=".05" value="0">
+<label>Blink</label><input id="blink" type="range" min="0" max="1" step=".05" value="0">
+<label>Mouth open</label><input id="mouthOpen" type="range" min="0" max="1" step=".05" value=".15">
+<label>Eyebrow angle</label><input id="browAngle" type="range" min="-1" max="1" step=".05" value="0">
+<div class="row"><button id="faceCapture" class="primary">Capture face key</button><button id="faceReset">Reset face</button></div>
+<div class="hint">Select the head artwork layer to attach a live facial overlay. Gaze, blinking, expression and mouth movement can be captured on the timeline. The overlay is editable and does not alter your source artwork.</div></section></aside></main>
 <script>
 const c=document.getElementById('stage'),ctx=c.getContext('2d');let parts=[],sel=-1,transparent=false,keys={},frame=0,playing=false,playTimer=null;
 const el=id=>document.getElementById(id);
@@ -104,4 +113,45 @@ refreshParentMenu();/* v4.3 timeline extensions */
 el('capture').title='Capture current pose at selected frame';
 el('deleteKey').onclick=()=>{delete keys[frame];renderFrames()};
 el('frame').max=120;renderFrames();
+
+/* v4.4 facial acting and hierarchy rendering */
+const face={expression:'neutral',gx:0,gy:0,blink:0,mouth:.15,brow:0};
+const faceKeys={};
+const faceIds=['faceExpression','gazeX','gazeY','blink','mouthOpen','browAngle'];
+function syncFace(){el('faceExpression').value=face.expression;el('gazeX').value=face.gx;el('gazeY').value=face.gy;el('blink').value=face.blink;el('mouthOpen').value=face.mouth;el('browAngle').value=face.brow;el('faceTargetName').textContent=sel>=0?parts[sel].name:'No head selected'}
+function setExpression(v){face.expression=v;const presets={neutral:[0,0,.0,.15,0],happy:[0,-.05,0,.25,-.25],sad:[0,.15,0,.12,.3],angry:[0,0,0,.12,.75],surprised:[0,-.25,0,.8,-.35],determined:[.1,0,0,.08,.55]};let a=presets[v]||presets.neutral;[face.gx,face.gy,face.blink,face.mouth,face.brow]=a;syncFace();draw()}
+el('faceExpression').onchange=e=>{setExpression(e.target.value)};
+[['gazeX','gx'],['gazeY','gy'],['blink','blink'],['mouthOpen','mouth'],['browAngle','brow']].forEach(([id,k])=>el(id).oninput=e=>{face[k]=Number(e.target.value);draw()});
+el('faceReset').onclick=()=>{Object.assign(face,{expression:'neutral',gx:0,gy:0,blink:0,mouth:.15,brow:0});syncFace();draw()};
+function faceSnapshot(){return {...face}}
+function restoreFace(o){if(!o)return;Object.assign(face,o);syncFace()}
+el('faceCapture').onclick=()=>{faceKeys[frame]=faceSnapshot();renderFrames()};
+const oldCapture=el('capture').onclick;
+el('capture').onclick=()=>{oldCapture();faceKeys[frame]=faceSnapshot();renderFrames()};
+const oldApplyKey=applyKey;
+applyKey=function(f){oldApplyKey(f);let ks=Object.keys(faceKeys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let a=ks.filter(k=>k<=f).pop(),b=ks.find(k=>k>=f);if(a===undefined)a=ks[0];if(b===undefined)b=ks[ks.length-1];let t=a===b?0:(f-a)/(b-a);let mode=el('easing').value;if(mode==='ease')t=t*t*(3-2*t);else if(mode==='easeOut')t=1-(1-t)*(1-t);else if(mode==='easeIn')t=t*t;else if(mode==='hold')t=0;let A=faceKeys[a],B=faceKeys[b];face.expression=t<.5?A.expression:B.expression;['gx','gy','blink','mouth','brow'].forEach(k=>face[k]=A[k]+(B[k]-A[k])*t);syncFace()};
+const previousDraw=draw;
+draw=function(){
+/* Draw each rig part in its complete world transform; this supports nested parent chains. */
+ctx.clearRect(0,0,c.width,c.height);if(!transparent){ctx.fillStyle=el('bg').value;ctx.fillRect(0,0,c.width,c.height)}
+ctx.save();ctx.translate(c.width/2,c.height/2);
+parts.forEach((p,i)=>{if(!p.visible||!p.img)return;let w=worldTransform(i);ctx.save();ctx.translate(w.x,w.y);ctx.rotate(w.r*Math.PI/180);ctx.scale(w.sc,w.sc);ctx.globalAlpha=p.opacity;ctx.drawImage(p.img,-p.px,-p.py);
+if(i===sel){ctx.strokeStyle='#78a0ff';ctx.setLineDash([6,4]);ctx.strokeRect(-p.px-2,-p.py-2,p.img.width+4,p.img.height+4);ctx.setLineDash([]);ctx.fillStyle='#ffd66b';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill()}ctx.restore()});
+/* Facial overlay is anchored to the selected artwork layer and follows its full rig transform. */
+if(sel>=0&&parts[sel]?.img){let p=parts[sel],w=worldTransform(sel),iw=p.img.width,ih=p.img.height;
+ctx.save();ctx.translate(w.x,w.y);ctx.rotate(w.r*Math.PI/180);ctx.scale(w.sc,w.sc);ctx.translate(-p.px,-p.py);
+const eyeY=ih*.39,eyeDX=iw*.19,eyeR=Math.max(3,iw*.055),gX=face.gx*eyeR*.65,gY=face.gy*eyeR*.55;
+ctx.lineCap='round';ctx.lineJoin='round';
+[-1,1].forEach(side=>{let ex=iw/2+side*eyeDX;ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(ex,eyeY,eyeR*1.2,Math.max(1,eyeR*(1-face.blink*.94)),0,0,Math.PI*2);ctx.fill();if(face.blink<.88){ctx.fillStyle='#26334d';ctx.beginPath();ctx.arc(ex+gX,eyeY+gY,eyeR*.48,0,Math.PI*2);ctx.fill()}ctx.strokeStyle='#26334d';ctx.lineWidth=Math.max(2,iw*.012);ctx.beginPath();ctx.moveTo(ex-eyeR*1.25,eyeY-eyeR*.85+face.brow*eyeR*.55);ctx.lineTo(ex+eyeR*1.25,eyeY-eyeR*.85-face.brow*eyeR*.55);ctx.stroke()});
+let my=ih*.68,mw=iw*.105,mh=Math.max(1,ih*(.012+face.mouth*.075));ctx.fillStyle='#7d3346';ctx.beginPath();ctx.ellipse(iw/2,my,mw,mh,0,0,Math.PI*2);ctx.fill();
+if(face.expression==='happy'){ctx.strokeStyle='#7d3346';ctx.lineWidth=Math.max(2,iw*.012);ctx.beginPath();ctx.arc(iw/2,my-ih*.035,mw,0.15,Math.PI-.15);ctx.stroke()}
+ctx.restore()}
+ctx.restore()};
+const oldExport=el('exportJson').onclick;
+el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'4.4',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},parts:parts.map(({img,...p})=>({...p,src:null})),keyframes:keys,faceKeys};download(JSON.stringify(data,null,2),'stickmotion-anime-studio-v4.4.json','application/json')};
+const oldJsonChange=el('jsonFile').onchange;
+el('jsonFile').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let d=JSON.parse(await file.text());parts=(d.parts||[]).map(p=>({...p,img:null,parent:p.parent??-1}));keys=d.keyframes||{};Object.assign(faceKeys,d.faceKeys||{});c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);refreshParentMenu();renderFrames();draw();alert('Rig settings loaded. Re-import the original image files to restore artwork; facial keys and animation data were loaded.')}catch(err){alert('Invalid rig JSON')}};
+const oldRenderFrames=renderFrames;
+renderFrames=function(){oldRenderFrames();el('faceTargetName').textContent=sel>=0?parts[sel].name:'No head selected'};
+syncFace();
 </script></body></html>
