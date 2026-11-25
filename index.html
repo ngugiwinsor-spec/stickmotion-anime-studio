@@ -52,7 +52,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Middle / lower limb</label><select id="ikMiddle"></select>
 <label>End / hand or foot</label><select id="ikEnd"></select>
 <div class="row"><label style="flex:1">Target X<input id="ikX" type="number" value="180" step="1"></label><label style="flex:1">Target Y<input id="ikY" type="number" value="80" step="1"></label></div>
-<div class="row"><button id="ikAuto">Auto-detect chain</button></div><div class="row"><button id="ikDragTarget">Drag hand / foot on canvas</button></div><div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
+<div class="row"><button id="ikAuto">Auto-detect chain</button><button id="ikAutoLeft">Auto left</button><button id="ikAutoRight">Auto right</button></div><div class="row"><button id="ikDragTarget">Drag hand / foot on canvas</button></div><div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
 <div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Use Auto-detect after naming and attaching your limb parts. The upper limb may be attached to a torso.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
 <section id="facePanel"><h3>Facial animation · v4.4</h3>
@@ -338,17 +338,31 @@ function refreshIKMenus(){
   if(parts[Number(old)])q.value=old;
  });
 }
-function autoDetectIK(){
- const root=parts.map((p,i)=>({p,i})).find(x=>/upper.?arm|arm.?upper|thigh|upper.?leg/.test(String(x.p.name||'').toLowerCase()));
- if(!root){ikStatus('Name a layer Upper Arm or Thigh, then attach Forearm/Shin and Hand/Foot beneath it.');return}
- const mid=parts.findIndex(p=>p.parent===root.i&&/forearm|lower.?arm|shin|calf|lower.?leg/.test(String(p.name||'').toLowerCase()));
- if(mid<0){ikStatus('Attach a part named Forearm, Lower Arm, Shin or Calf directly beneath the upper limb.');return}
- const end=parts.findIndex(p=>p.parent===mid&&/hand|foot/.test(String(p.name||'').toLowerCase()));
- if(end<0){ikStatus('Attach a part named Hand or Foot beneath the lower limb.');return}
- el('ikRoot').value=String(root.i);el('ikMiddle').value=String(mid);el('ikEnd').value=String(end);
- ikStatus('Detected '+(root.p.parent>=0?parts[root.p.parent].name+' → ':'')+root.p.name+' → '+parts[mid].name+' → '+parts[end].name+'. Adjust the target and solve.');
+function ikNameHasSide(name,side){
+ const n=String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+ const tokens=n.split(/\\s+/);
+ const aliases=side==='left'?['left','l']:['right','r'];
+ return tokens.some(t=>aliases.includes(t));
 }
-el('ikAuto').onclick=autoDetectIK;
+function autoDetectIK(side){
+ const limbRoot=/upper.?arm|arm.?upper|thigh|upper.?leg/;
+ const limbMid=/forearm|lower.?arm|shin|calf|lower.?leg/;
+ const limbEnd=/hand|foot/;
+ const roots=parts.map((p,i)=>({p,i})).filter(x=>limbRoot.test(String(x.p.name||'').toLowerCase()));
+ const root=side?roots.find(x=>ikNameHasSide(x.p.name,side)):roots[0];
+ if(!root){ikStatus(side?'No '+side+' upper arm or thigh found. Include “'+side+'” or the side initial in the layer name.':'Name a layer Upper Arm or Thigh, then attach Forearm/Shin and Hand/Foot beneath it.');return}
+ const mids=parts.map((p,i)=>({p,i})).filter(x=>x.p.parent===root.i&&limbMid.test(String(x.p.name||'').toLowerCase()));
+ const mid=side?mids.find(x=>ikNameHasSide(x.p.name,side)):mids[0];
+ if(!mid){ikStatus('Attach a '+(side?side+' ':'')+'Forearm, Lower Arm, Shin or Calf directly beneath '+root.p.name+'.');return}
+ const ends=parts.map((p,i)=>({p,i})).filter(x=>x.p.parent===mid.i&&limbEnd.test(String(x.p.name||'').toLowerCase()));
+ const end=side?ends.find(x=>ikNameHasSide(x.p.name,side)):ends[0];
+ if(!end){ikStatus('Attach a '+(side?side+' ':'')+'Hand or Foot beneath '+mid.p.name+'.');return}
+ el('ikRoot').value=String(root.i);el('ikMiddle').value=String(mid.i);el('ikEnd').value=String(end.i);
+ ikStatus('Detected '+(root.p.parent>=0?parts[root.p.parent].name+' → ':'')+root.p.name+' → '+mid.p.name+' → '+end.p.name+'. Adjust the target and solve.');
+}
+el('ikAuto').onclick=()=>autoDetectIK();
+el('ikAutoLeft').onclick=()=>autoDetectIK('left');
+el('ikAutoRight').onclick=()=>autoDetectIK('right');
 const ikStatus=msg=>{el('ikStatus').textContent=msg};
 function solveIK(capture,quiet){
  const ri=Number(el('ikRoot').value),mi=Number(el('ikMiddle').value),ei=Number(el('ikEnd').value);
