@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.4 • Character Pose Library</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.5 • Visual Joint Placement</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -36,7 +36,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <section><h3>Selected part</h3><div id="selectedName" class="small">Select a layer</div>
 <label>Position X</label><input id="x" type="range" min="-960" max="960" value="0"><label>Position Y</label><input id="y" type="range" min="-540" max="540" value="0">
 <label>Rotation</label><input id="rot" type="range" min="-180" max="180" value="0"><label>Scale</label><input id="scale" type="range" min="0.1" max="3" step=".01" value="1"><label>Opacity</label><input id="opacity" type="range" min="0" max="1" step=".01" value="1">
-<label>Pivot X (image pixels)</label><input id="px" type="number" value="0"><label>Pivot Y</label><input id="py" type="number" value="0"><div class="row" style="margin-top:8px"><button id="pivotCenter">Center pivot</button><button id="remove" class="danger">Remove part</button></div>
+<label>Pivot X (image pixels)</label><input id="px" type="number" value="0"><label>Pivot Y</label><input id="py" type="number" value="0"><div class="row" style="margin-top:8px"><button id="pivotCenter">Center pivot</button><button id="pivotPlace" class="primary">Place pivot on canvas</button></div><div class="small" id="pivotStatus">Select a part, enable placement, then tap the exact joint location on its artwork.</div><div class="row" style="margin-top:8px"><button id="remove" class="danger">Remove part</button></div>
 <label>Quick rotation</label><div class="row"><button data-rot="-15">−15°</button><button data-rot="15">+15°</button></div>
 </section>
 <section><h3>Rig hierarchy</h3>
@@ -418,6 +418,34 @@ el('generateMotion').onclick=()=>{
  motionStatus(preset.toUpperCase()+' action generated · 9 key poses · review and adjust the result');
 };
  
+/* v5.5: click-to-place joint pivot editor */
+let pivotPlacement=false;
+function pivotMessage(msg){el('pivotStatus').textContent=msg}
+el('pivotPlace').onclick=()=>{
+ if(sel<0){pivotMessage('Select a body part first');return}
+ pivotPlacement=!pivotPlacement;
+ el('pivotPlace').textContent=pivotPlacement?'Cancel pivot placement':'Place pivot on canvas';
+ el('pivotPlace').classList.toggle('primary',pivotPlacement);
+ pivotMessage(pivotPlacement?'Tap the desired joint point directly on the selected part.':'Pivot placement cancelled.');
+};
+const originalCanvasPointerDown=c.onpointerdown;
+c.onpointerdown=e=>{
+ if(!pivotPlacement||sel<0){if(originalCanvasPointerDown)originalCanvasPointerDown(e);return}
+ const p=parts[sel],rect=c.getBoundingClientRect();
+ let x=(e.clientX-rect.left)*c.width/rect.width-c.width/2;
+ let y=(e.clientY-rect.top)*c.height/rect.height-c.height/2;
+ const camAngle=-camera.rot*Math.PI/180,cc=Math.cos(camAngle),cs=Math.sin(camAngle);
+ const cx=x-camera.x,cy=y-camera.y;
+ x=(cx*cc-cy*cs)/camera.zoom;y=(cx*cs+cy*cc)/camera.zoom;
+ const w=worldTransform(sel),a=-w.r*Math.PI/180,co=Math.cos(a),si=Math.sin(a);
+ const dx=x-w.x,dy=y-w.y;
+ p.px=(dx*co-dy*si)/w.sc+p.px;
+ p.py=(dx*si+dy*co)/w.sc+p.py;
+ p.px=Math.max(0,Math.min(p.img.width,p.px));
+ p.py=Math.max(0,Math.min(p.img.height,p.py));
+ pivotPlacement=false;el('pivotPlace').textContent='Place pivot on canvas';el('pivotPlace').classList.remove('primary');
+ syncControls();draw();pivotMessage('Joint pivot placed at X '+p.px.toFixed(1)+', Y '+p.py.toFixed(1)+'.');
+};
 /* v5.4: reusable full-character pose library */
 const POSE_LIBRARY_KEY='stickmotion-character-poses-v1';
 let poseLibrary=[];
