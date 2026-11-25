@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.24');
+  await expect(page.locator('.badge')).toContainText('v7.25');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -510,5 +510,31 @@ test('sound cues can be shifted together without changing cue settings', async (
   await page.locator('#sfxShiftFrames').fill('-30');
   await page.locator('#shiftSfxCues').click();
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.frame))).toEqual([0,0]);
+  expect(errors).toEqual([]);
+});
+
+
+test('sound cues can be grouped by effect type and frame', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#sfxType').selectOption('whoosh');
+  await page.locator('#frame').fill('9');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#sfxType').selectOption('impact');
+  await page.locator('#frame').fill('30');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#sfxType').selectOption('whoosh');
+  await page.locator('#frame').fill('3');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#groupSfxCues').click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.type,c.frame]))).toEqual([
+    ['impact',0],['whoosh',3],['whoosh',9]
+  ]);
+  await expect(page.locator('#sfxStatus')).toHaveText('Grouped 3 sound cues by type');
   expect(errors).toEqual([]);
 });
