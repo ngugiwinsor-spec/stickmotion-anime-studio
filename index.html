@@ -154,4 +154,22 @@ el('jsonFile').onchange=async e=>{let file=e.target.files[0];if(!file)return;try
 const oldRenderFrames=renderFrames;
 renderFrames=function(){oldRenderFrames();el('faceTargetName').textContent=sel>=0?parts[sel].name:'No head selected'};
 syncFace();
+
+/* v4.4.1: safe parent assignment using inverse parent world transform */
+el('attachPart').onclick=()=>{
+ if(sel<0)return;
+ const value=el('parentSelect').value;
+ if(value===""){parts[sel].parent=-1;refreshParentMenu();draw();return}
+ const pi=Number(value);if(!Number.isInteger(pi)||pi<0||pi>=parts.length||pi===sel)return;
+ let cursor=pi,visited=new Set([sel]);
+ while(cursor>=0&&cursor<parts.length&&!visited.has(cursor)){visited.add(cursor);cursor=parts[cursor].parent??-1}
+ if(cursor>=0&&visited.has(cursor)){alert('That attachment would create a rig cycle. Choose a different parent.');return}
+ const childWorld=worldTransform(sel),parentWorld=worldTransform(pi);
+ const dx=childWorld.x-parentWorld.x,dy=childWorld.y-parentWorld.y,angle=-parentWorld.r*Math.PI/180;
+ const localX=(dx*Math.cos(angle)-dy*Math.sin(angle))/(parentWorld.sc||1);
+ const localY=(dx*Math.sin(angle)+dy*Math.cos(angle))/(parentWorld.sc||1);
+ parts[sel].x=localX;parts[sel].y=localY;parts[sel].parent=pi;
+ refreshParentMenu();draw()
+};
+
 </script></body></html>
