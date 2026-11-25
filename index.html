@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StickMotion Anime Studio</title>
+<style>
+:root{--bg:#0b1020;--panel:#121a2d;--panel2:#18243a;--line:#293650;--text:#eaf1ff;--muted:#91a2c2;--accent:#7c9cff;--cyan:#52d7e8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,Segoe UI,Arial}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:#0e1628;position:sticky;top:0;z-index:3}
+.logo{font-weight:800;letter-spacing:.3px}.logo span{color:var(--cyan)}.badge{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:3px 8px}
+main{display:grid;grid-template-columns:260px minmax(280px,1fr) 280px;min-height:calc(100vh - 54px)}
+aside{background:var(--panel);padding:12px;border-right:1px solid var(--line);overflow:auto}aside.right{border-right:0;border-left:1px solid var(--line)}
+h3{font-size:13px;margin:4px 0 10px;color:#c8d6f5}section{padding:10px 0;border-bottom:1px solid var(--line)}button,.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;cursor:pointer}button:hover{border-color:var(--accent)}button.primary{background:#344a8c;border-color:#607be0}button.danger{color:#ffadb4}.row{display:flex;gap:6px;flex-wrap:wrap}.row>*{flex:1}.small{font-size:12px;color:var(--muted)}input[type=range]{width:100%;accent-color:var(--accent)}input[type=number],input[type=text],select{width:100%;padding:7px;background:#0c1424;color:var(--text);border:1px solid var(--line);border-radius:7px}
+label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-area{padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}.stage-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.canvas-wrap{flex:1;min-height:400px;display:grid;place-items:center;background:radial-gradient(#1c2a42,#0b1020);border:1px solid var(--line);border-radius:12px;overflow:hidden}.canvas-wrap canvas{max-width:100%;max-height:100%;width:auto;height:auto;touch-action:none;background:transparent}
+.layer-list{display:flex;flex-direction:column;gap:5px;margin-top:8px}.layer{display:flex;align-items:center;gap:6px;padding:7px;border:1px solid var(--line);border-radius:7px;background:#0e1728}.layer.selected{border-color:var(--accent);background:#1c2a48}.layer .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.layer button{padding:4px 7px}.keylist{display:flex;gap:5px;flex-wrap:wrap}.key{border:1px solid #40527a;border-radius:5px;padding:4px 6px;font-size:11px}
+.timeline{background:#111a2c;border:1px solid var(--line);border-radius:9px;padding:10px}.timeline-head{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}.frames{display:flex;gap:4px;overflow:auto;padding:7px 0}.frame{min-width:36px;padding:7px 4px;text-align:center;border:1px solid var(--line);border-radius:5px}.frame.active{background:#304477;border-color:var(--accent)}
+.hint{background:#0d1728;border-radius:8px;padding:9px;color:var(--muted);font-size:12px;line-height:1.5}.hidden{display:none!important}
+@media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
+</style></head>
+<body>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v4.1 • Cut-out Rig Editor</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<main>
+<aside class="aside-left">
+<section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
+<section><h3>Layers / body parts</h3><div class="row"><button id="up">↑ Up</button><button id="down">↓ Down</button></div><div id="layers" class="layer-list"></div></section>
+<section><h3>Project</h3><label>Canvas preset</label><select id="preset"><option value="1920,1080">16:9 — 1920×1080</option><option value="1080,1920">9:16 — 1080×1920</option><option value="1080,1080">1:1 — 1080×1080</option><option value="1280,720">HD — 1280×720</option></select><label>Background</label><input id="bg" type="color" value="#222b3c"><div class="row" style="margin-top:8px"><button id="toggleBg">Transparent</button><button id="reset">Reset scene</button></div></section>
+</aside>
+<div class="stage-area">
+<div class="stage-tools"><button id="center">Center selected</button><button id="fit">Fit view</button><button id="exportPng" class="primary">Export PNG</button><button id="exportJson">Rig JSON</button><button id="importJson">Import Rig</button><input id="jsonFile" type="file" accept=".json" class="hidden"></div>
+<div class="canvas-wrap"><canvas id="stage" width="1280" height="720"></canvas></div>
+<div class="timeline"><div class="timeline-head"><strong>Animation timeline</strong><div class="row" style="flex:0 0 auto"><button id="capture" class="primary">● Capture key</button><button id="play">▶ Play</button><button id="clearKeys" class="danger">Clear keys</button></div></div><label>Frame <span id="frameLabel">0</span> / 60</label><input id="frame" type="range" min="0" max="60" value="0"><div class="frames" id="frames"></div><div class="small">Capture a pose at a frame, move to another frame, change the pose, and capture again. Playback interpolates between captured poses.</div></div>
+</div>
+<aside class="right">
+<section><h3>Selected part</h3><div id="selectedName" class="small">Select a layer</div>
+<label>Position X</label><input id="x" type="range" min="-960" max="960" value="0"><label>Position Y</label><input id="y" type="range" min="-540" max="540" value="0">
+<label>Rotation</label><input id="rot" type="range" min="-180" max="180" value="0"><label>Scale</label><input id="scale" type="range" min="0.1" max="3" step=".01" value="1"><label>Opacity</label><input id="opacity" type="range" min="0" max="1" step=".01" value="1">
+<label>Pivot X (image pixels)</label><input id="px" type="number" value="0"><label>Pivot Y</label><input id="py" type="number" value="0"><div class="row" style="margin-top:8px"><button id="pivotCenter">Center pivot</button><button id="remove" class="danger">Remove part</button></div>
+<label>Quick rotation</label><div class="row"><button data-rot="-15">−15°</button><button data-rot="15">+15°</button></div>
+</section>
+<section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
+</aside></main>
+<script>
+const c=document.getElementById('stage'),ctx=c.getContext('2d');let parts=[],sel=-1,transparent=false,keys={},frame=0,playing=false,playTimer=null;
+const el=id=>document.getElementById(id);
+function draw(){ctx.clearRect(0,0,c.width,c.height);if(!transparent){ctx.fillStyle=el('bg').value;ctx.fillRect(0,0,c.width,c.height)}
+ctx.save();ctx.translate(c.width/2,c.height/2);
+parts.forEach((p,i)=>{if(!p.visible)return;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.scale(p.scale,p.scale);ctx.globalAlpha=p.opacity;ctx.drawImage(p.img,-p.px,-p.py);ctx.restore();
+if(i===sel){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.strokeStyle='#78a0ff';ctx.setLineDash([6,4]);ctx.strokeRect(-p.px-2,-p.py-2,p.img.width+4,p.img.height+4);ctx.setLineDash([]);ctx.fillStyle='#ffd66b';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();ctx.restore();}});
+ctx.restore()}
+function renderLayers(){el('layers').innerHTML='';parts.forEach((p,i)=>{const d=document.createElement('div');d.className='layer'+(i===sel?' selected':'');d.innerHTML='<button class="eye">'+(p.visible?'◉':'○')+'</button><span class="name"></span><button class="pick">✎</button>';d.querySelector('.name').textContent=p.name;d.querySelector('.eye').onclick=()=>{p.visible=!p.visible;renderLayers();draw()};d.querySelector('.pick').onclick=()=>select(i);d.onclick=e=>{if(!e.target.closest('button'))select(i)};el('layers').append(d)})}
+function select(i){sel=i;renderLayers();syncControls();draw()}
+function syncControls(){let p=parts[sel];el('selectedName').textContent=p?p.name:'Select a layer';['x','y','rot','scale','opacity','px','py'].forEach(id=>{el(id).disabled=!p;if(p)el(id).value=p[id==='rot'?'rot':id]});}
+['x','y','rot','scale','opacity','px','py'].forEach(id=>el(id).oninput=()=>{if(sel<0)return;let p=parts[sel];p[id]=Number(el(id).value);draw()});
+el('files').onchange=e=>[...e.target.files].forEach(f=>{let img=new Image();img.onload=()=>{parts.push({name:f.name,img,x:0,y:0,rot:0,scale:1,opacity:1,px:img.width/2,py:img.height/2,visible:true});select(parts.length-1)};img.src=URL.createObjectURL(f)}); 
+el('remove').onclick=()=>{if(sel<0)return;parts.splice(sel,1);sel=Math.min(sel,parts.length-1);renderLayers();syncControls();draw()};
+el('up').onclick=()=>{if(sel>0){[parts[sel-1],parts[sel]]=[parts[sel],parts[sel-1]];sel--;renderLayers();draw()}};
+el('down').onclick=()=>{if(sel>=0&&sel<parts.length-1){[parts[sel+1],parts[sel]]=[parts[sel],parts[sel+1]];sel++;renderLayers();draw()}};
+el('center').onclick=()=>{if(sel>=0){parts[sel].x=parts[sel].y=0;syncControls();draw()}};
+el('pivotCenter').onclick=()=>{if(sel>=0){parts[sel].px=parts[sel].img.width/2;parts[sel].py=parts[sel].img.height/2;syncControls();draw()}};
+document.querySelectorAll('[data-rot]').forEach(b=>b.onclick=()=>{if(sel>=0){parts[sel].rot+=Number(b.dataset.rot);syncControls();draw()}});
+el('preset').onchange=()=>{let [w,h]=el('preset').value.split(',').map(Number);c.width=w;c.height=h;draw()};
+el('bg').oninput=draw;el('toggleBg').onclick=()=>{transparent=!transparent;el('toggleBg').textContent=transparent?'Use background':'Transparent';draw()};
+el('reset').onclick=()=>{parts=[];sel=-1;keys={};frame=0;renderLayers();syncControls();draw();renderFrames()};
+function snap(){return parts.map(p=>({x:p.x,y:p.y,rot:p.rot,scale:p.scale,opacity:p.opacity}))}
+el('capture').onclick=()=>{keys[frame]=snap();renderFrames()};
+el('frame').oninput=()=>{frame=Number(el('frame').value);el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()};
+function applyKey(f){let ks=Object.keys(keys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let prev=ks.filter(k=>k<=f).pop(),next=ks.find(k=>k>=f);if(prev===undefined)prev=ks[0];if(next===undefined)next=ks[ks.length-1];let t=next===prev?0:(f-prev)/(next-prev);keys[prev].forEach((s,i)=>{if(!parts[i])return;let a=s,b=keys[next][i]||a;for(let q of ['x','y','rot','scale','opacity'])parts[i][q]=a[q]+(b[q]-a[q])*t});syncControls()}
+function renderFrames(){el('frames').innerHTML='';for(let i=0;i<=60;i+=5){let b=document.createElement('button');b.className='frame'+(i===frame?' active':'');b.textContent=i+(keys[i]?'◆':'');b.onclick=()=>{frame=i;el('frame').value=i;el('frameLabel').textContent=i;applyKey(i);renderFrames();draw()};el('frames').append(b)}}
+el('play').onclick=()=>{if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play';return}playing=true;el('play').textContent='❚❚ Pause';playTimer=setInterval(()=>{frame=(frame+1)%61;el('frame').value=frame;el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()},100)};
+el('clearKeys').onclick=()=>{keys={};renderFrames()};
+el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'4.1',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},parts:parts.map(({img,...p})=>({...p,src:null})),keyframes:keys};download(JSON.stringify(data,null,2),'stickmotion-rig.json','application/json')};
+el('importJson').onclick=()=>el('jsonFile').click();el('jsonFile').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let d=JSON.parse(await f.text());alert('Rig settings imported. Image files must be re-imported separately; this JSON stores their layer settings.');parts=d.parts||[];keys=d.keyframes||{};c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);renderFrames();draw()}catch(err){alert('Invalid JSON file')}};
+el('exportPng').onclick=()=>{let old=sel;sel=-1;draw();c.toBlob(blob=>{download(URL.createObjectURL(blob),'stickmotion-stage.png','image/png');sel=old;draw()},'image/png')};
+function download(url,name,type){let a=document.createElement('a');a.href=url;a.download=name;a.click();if(url.startsWith('blob:'))setTimeout(()=>URL.revokeObjectURL(url),2000)}
+let drag=null;c.onpointerdown=e=>{let r=c.getBoundingClientRect(),x=(e.clientX-r.left)*c.width/r.width-c.width/2,y=(e.clientY-r.top)*c.height/r.height-c.height/2;for(let i=parts.length-1;i>=0;i--){let p=parts[i];if(!p.visible)continue;let dx=x-p.x,dy=y-p.y,co=Math.cos(-p.rot*Math.PI/180),si=Math.sin(-p.rot*Math.PI/180),lx=(dx*co-dy*si)/p.scale+p.px,ly=(dx*si+dy*co)/p.scale+p.py;if(lx>=0&&ly>=0&&lx<=p.img.width&&ly<=p.img.height){select(i);drag={i,startX:x,startY:y,ox:p.x,oy:p.y};c.setPointerCapture(e.pointerId);break}}};c.onpointermove=e=>{if(!drag)return;let r=c.getBoundingClientRect(),x=(e.clientX-r.left)*c.width/r.width-c.width/2,y=(e.clientY-r.top)*c.height/r.height-c.height/2,p=parts[drag.i];p.x=drag.ox+x-drag.startX;p.y=drag.oy+y-drag.startY;syncControls();draw()};c.onpointerup=()=>drag=null;
+function demo(){parts=[];let make=(name,color,w,h,x,y)=>{let cc=document.createElement('canvas');cc.width=w;cc.height=h;let q=cc.getContext('2d');q.fillStyle=color;q.strokeStyle='#101827';q.lineWidth=6;q.beginPath();q.roundRect(3,3,w-6,h-6,Math.min(24,w/4));q.fill();q.stroke();let im=new Image();im.src=cc.toDataURL();im.onload=()=>{parts.push({name,img:im,x,y,rot:0,scale:1,opacity:1,px:w/2,py:h/2,visible:true});renderLayers();select(parts.length-1);draw()}};make('Torso','#5778c8',130,190,0,40);make('Head','#f0c5a1',120,120,0,-130);make('Left upper arm','#5778c8',55,130,-100,-15);make('Left forearm','#f0c5a1',48,115,-130,80);make('Right upper arm','#5778c8',55,130,100,-15);make('Right forearm','#f0c5a1',48,115,130,80);make('Left thigh','#303d68',65,145,-40,170);make('Left shin','#65729a',55,135,-45,285);make('Right thigh','#303d68',65,145,40,170);make('Right shin','#65729a',55,135,45,285)}
+el('addDemo').onclick=demo;renderFrames();draw();
+</script></body></html>
