@@ -303,5 +303,9 @@ test('episode export scheduler keeps sound cues scoped to each scene', async ({ 
     ['scene-two',0,'magic']
   ]);
   expect(events[1].offset).toBeGreaterThan(events[0].offset);
+  await page.evaluate(() => window.__stickMotionResetEpisodeSfxEvents());
+  expect(await page.evaluate(() => window.__stickMotionEpisodeSfxEvents)).toHaveLength(0);
+  await page.evaluate(() => window.__stickMotionScheduleEpisodeSfx('next-export', 0, 20));
+  expect(await page.evaluate(() => window.__stickMotionEpisodeSfxEvents.map(e => e.sceneId))).toEqual(['next-export']);
   expect(errors).toEqual([]);
 });
