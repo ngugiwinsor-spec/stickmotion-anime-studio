@@ -1080,7 +1080,7 @@ test('rig hierarchy preserves world transforms, blocks cycles, and remaps layer 
   await page.evaluate(() => select(0));
   const allowedParents = await page.locator('#parentSelect option').evaluateAll(options => options.map(o => o.value));
   expect(allowedParents).not.toContain('1');
-  await page.evaluate(() => { document.querySelector('#parentSelect').value = '1'; });
+  await page.evaluate(() => { const select = document.querySelector('#parentSelect'); select.add(new Option('Head (invalid descendant)', '1')); select.value = '1'; });
   await page.locator('#attachPart').click();
   expect(await page.evaluate(() => parts[0].parent)).toBe(-1);
   expect(await page.evaluate(() => parts[1].parent)).toBe(0);
