@@ -76,7 +76,9 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Camera rotation</label><input id="camRot" type="range" min="-180" max="180" value="0">
 <div class="row"><button id="cameraCenter">Reset camera</button><button id="cameraCapture" class="primary">Capture camera key</button></div><h3 style="margin-top:14px">Cinematic effects · v6.4</h3><label><input id="cinematicShake" type="checkbox" checked style="width:auto"> Enable camera shake</label><label>Shake intensity <span id="shakeLabel">8</span></label><input id="shakeIntensity" type="range" min="0" max="30" value="8"><label><input id="impactFlash" type="checkbox" checked style="width:auto"> Impact flash</label><h3 style="margin-top:14px">Camera presets · v6.5</h3><label>Shot framing</label><select id="cameraPreset"><option value="custom">Custom framing</option><option value="wide">Wide establishing shot</option><option value="hero">Hero shot</option><option value="close">Close-up</option><option value="dutch">Dutch angle</option><option value="low">Low-angle dramatic</option></select><button id="applyCameraPreset" class="primary" style="width:100%;margin-top:6px">Apply camera preset</button><div class="hint" id="cameraPresetStatus">Choose a shot and apply it. Capture a camera key to animate between shots.</div><h3 style="margin-top:14px">Lighting & atmosphere · v6.5</h3><label>Atmosphere</label><select id="atmospherePreset"><option value="neutral">Neutral</option><option value="sunset">Warm sunset</option><option value="moon">Cool moonlight</option><option value="ember">Ember / battle</option><option value="teal">Teal cinematic</option></select><label>Atmosphere strength <span id="atmosphereLabel">18%</span></label><input id="atmosphereStrength" type="range" min="0" max="60" value="18"><label>Vignette strength <span id="vignetteLabel">25%</span></label><input id="vignetteStrength" type="range" min="0" max="80" value="25"><h3 style="margin-top:14px">Anime effects · v6.6</h3><label>Effect type</label><select id="animeEffect"><option value="none">None</option><option value="speed">Anime speed lines</option><option value="sparks">Impact sparks</option><option value="aura">Energy aura</option><option value="embers">Floating embers</option></select><label>Effect intensity <span id="effectIntensityLabel">50%</span></label><input id="effectIntensity" type="range" min="0" max="100" value="50"><div class="hint">Effects follow the timeline frame. Select a character layer to anchor sparks and energy around its rig position.</div><h3 style="margin-top:14px">Anime motion trails · v6.9</h3><label><input id="motionTrails" type="checkbox" style="width:auto"> Enable afterimage trails</label><label>Trail count</label><select id="trailCount"><option value="1">1 ghost</option><option value="2">2 ghosts</option><option value="3" selected>3 ghosts</option><option value="4">4 ghosts</option></select><label>Trail strength <span id="trailStrengthLabel">55%</span></label><input id="trailStrength" type="range" min="10" max="100" value="55"><div class="hint">Afterimages follow the selected character part and animation direction. They are timeline-synced preview effects and are included in video exports.</div><h3 style="margin-top:14px">Anime finishing · v6.7</h3><label>Character glow</label><div class="row"><input id="characterGlow" type="checkbox"><select id="glowColor"><option value="#62d9ff">Cyan</option><option value="#b58cff">Violet</option><option value="#ffd36b">Gold</option><option value="#ff6688">Crimson</option></select></div><label>Glow strength <span id="glowStrengthLabel">18</span></label><input id="glowStrength" type="range" min="0" max="40" value="18"><label>Eye glow <span id="eyeGlowLabel">0%</span></label><input id="eyeGlow" type="range" min="0" max="100" value="0"><div class="hint">Character glow is drawn behind the selected artwork. Eye glow follows the facial overlay on the selected head layer.</div><div class="hint">Lighting overlays are preview effects and do not alter your source character artwork.</div><div class="hint" id="cinematicStatus">Shake follows the timeline frame. Impact flashes are added to generated attack, dodge and jump actions.</div>
 <div class="hint">Animate camera position, zoom and rotation using the same frame timeline. Camera moves affect the entire scene and are included in project JSON.</div></section></aside></main>
+<script src="./episode-export-engine.js"></script>
 <script>
+window.__stickMotionExportRenderer = new URLSearchParams(location.search).has("export-renderer");
 const c=document.getElementById('stage'),ctx=c.getContext('2d');let parts=[],sel=-1,transparent=false,keys={},frame=0,playing=false,playTimer=null;
 const el=id=>document.getElementById(id);
 function draw(){ctx.clearRect(0,0,c.width,c.height);if(!transparent){ctx.fillStyle=el('bg').value;ctx.fillRect(0,0,c.width,c.height)}
@@ -303,6 +305,7 @@ function loadProjectState(s){
  historyLock=false;queueAutosave();
 }
 function queueAutosave(){
+ if(window.__stickMotionExportRenderer)return;
  if(savePending)return;savePending=true;
  setTimeout(()=>{savePending=false;try{localStorage.setItem(PROJECT_KEY,JSON.stringify(projectState()))}catch(e){console.warn('Autosave unavailable: browser storage may be full',e)}},500);
 }
@@ -363,7 +366,7 @@ try{const d=JSON.parse(localStorage.getItem(SCENE_KEY)||'null');if(d?.scenes?.le
 /* Keep the active scene snapshot in the episode autosave as edits occur. */
 let sceneAutosaveTimer=null;
 const drawBeforeSceneAutosave=draw;
-draw=function(){drawBeforeSceneAutosave();if(activeSceneId){clearTimeout(sceneAutosaveTimer);sceneAutosaveTimer=setTimeout(()=>{saveActiveScene();persistScenes()},1200)}};
+draw=function(){drawBeforeSceneAutosave();if(!window.__stickMotionExportRenderer&&activeSceneId){clearTimeout(sceneAutosaveTimer);sceneAutosaveTimer=setTimeout(()=>{saveActiveScene();persistScenes()},1200)}};
 
 /* v5.2: two-joint inverse kinematics solver for root-level limbs */
 function refreshIKMenus(){
@@ -1374,6 +1377,28 @@ try{
  const savedAfterExtensions=localStorage.getItem(PROJECT_KEY);
  if(savedAfterExtensions)loadProjectState(JSON.parse(savedAfterExtensions));
 }catch(err){console.warn('Could not restore extended project data',err)}
+
+/* Isolated renderer API used by the episode export iframe. */
+window.__stickMotionLoadExportScene = async state => {
+ loadProjectState(state);
+ const pending = parts.map(part => part.img).filter(img => img && !img.complete);
+ if (pending.length) {
+  await Promise.race([
+   Promise.all(pending.map(img => new Promise((resolve,reject) => {
+    img.addEventListener('load',resolve,{once:true});
+    img.addEventListener('error',()=>reject(new Error('A scene artwork image could not be loaded.')),{once:true});
+   }))),
+   new Promise((_,reject)=>setTimeout(()=>reject(new Error('Timed out waiting for scene artwork.')),15000))
+  ]);
+ }
+ return {width:c.width,height:c.height};
+};
+window.__stickMotionRenderExportFrame = f => {
+ frame=Math.max(0,Math.min(120,Number(f)||0));
+ applyKey(frame);
+ draw();
+ return c;
+};
 
 
 </script></body></html>
