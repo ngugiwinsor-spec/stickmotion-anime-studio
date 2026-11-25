@@ -1288,4 +1288,23 @@ updateAudioFrame=function(){if(!audioEl.paused){const f=Math.max(0,Math.floor((a
 const sfxPreviousPlay=el('play').onclick;
 el('play').onclick=async()=>{const wasPlaying=playing;sfxPreviousPlay();if(!wasPlaying){sfxInit();if(sfxContext?.state==='suspended')await sfxContext.resume();sfxLastFrame=-1;const tick=()=>{if(!playing)return;if(frame!==sfxLastFrame){sfxAtFrame(frame);sfxLastFrame=frame}requestAnimationFrame(tick)};requestAnimationFrame(tick)}};
 window.__stickMotionSfxCues=sfxCues;
+
+/* v7.8: editable, persistent sound-effect cue management */
+function sfxRefresh(){
+ el('sfxStatus').textContent=sfxCues.length+' cue'+(sfxCues.length===1?'':'s');
+ const list=el('sfxCueList');list.innerHTML='';
+ if(!sfxCues.length){list.textContent='No cues added.';return}
+ sfxCues.slice().sort((a,b)=>a.frame-b.frame).forEach(cue=>{
+  const row=document.createElement('div');row.className='row';row.style.margin='5px 0';
+  const jump=document.createElement('button');jump.type='button';jump.textContent='Frame '+cue.frame+' · '+cue.type;jump.title='Move playhead to this cue';jump.onclick=()=>{frame=cue.frame;el('frame').value=frame;el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()};
+  const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Delete';remove.setAttribute('aria-label','Delete sound cue at frame '+cue.frame);remove.onclick=()=>{sfxCues=sfxCues.filter(x=>x.id!==cue.id);sfxRefresh();pushHistory()};
+  row.append(jump,remove);list.append(row);
+ });
+}
+const projectStateBeforeSfx=projectState;
+projectState=function(){return {...projectStateBeforeSfx(),soundEffects:sfxCues.map(x=>({...x}))}};
+const loadProjectStateBeforeSfx=loadProjectState;
+loadProjectState=function(state){loadProjectStateBeforeSfx(state);sfxCues=Array.isArray(state?.soundEffects)?state.soundEffects.filter(x=>Number.isFinite(Number(x.frame))&&['impact','whoosh','magic','step','alert'].includes(x.type)).map(x=>({id:x.id||Date.now()+Math.random(),frame:Math.max(0,Math.min(120,Number(x.frame))),type:x.type})):[];sfxRefresh();window.__stickMotionSfxCues=sfxCues};
+window.__stickMotionProjectState=()=>projectState();
+window.__stickMotionLoadProjectState=state=>loadProjectState(state);
 </script></body></html>
