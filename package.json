@@ -1,0 +1,11 @@
+{
+  "name": "stickmotion-anime-studio",
+  "version": "6.7.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}
