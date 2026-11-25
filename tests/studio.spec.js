@@ -993,3 +993,23 @@ test('dialogue audio is saved across reloads and included in project downloads',
   expect(project.dialogueAudio.data).toMatch(/^data:audio\/wav;base64,/);
   expect(errors).toEqual([]);
 });
+
+test('imported character artwork autosaves and survives a browser reload', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#files').setInputFiles({
+    name: 'character-part.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=', 'base64')
+  });
+  await page.waitForFunction(() => window.localStorage.getItem('stickmotion-anime-studio-project-v1') && JSON.parse(window.localStorage.getItem('stickmotion-anime-studio-project-v1')).parts?.length === 1);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1')));
+  expect(saved.parts[0].name).toBe('character-part.png');
+  expect(saved.parts[0].image).toMatch(/^data:image\/png;base64,/);
+  await page.reload();
+  await page.waitForFunction(() => typeof parts !== 'undefined' && parts.length === 1 && parts[0].img?.complete && parts[0].img.naturalWidth === 1);
+  const restored = await page.evaluate(() => ({ name: parts[0].name, width: parts[0].img.naturalWidth, height: parts[0].img.naturalHeight }));
+  expect(restored).toEqual({ name: 'character-part.png', width: 1, height: 1 });
+  expect(errors).toEqual([]);
+});
