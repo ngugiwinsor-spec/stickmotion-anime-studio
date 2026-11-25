@@ -734,3 +734,69 @@ test('diagnostic: episode recorder lifecycle isolates canvas reset and audio tra
   console.log('EPISODE_LIFECYCLE_MATRIX', JSON.stringify(results));
   expect(results).toHaveLength(5);
 });
+
+
+test('diagnostic: Mediabunny encodes and Chromium decodes a deterministic WebM', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('/');
+  await page.addScriptTag({ url: 'https://github.com/Vanilagy/mediabunny/releases/download/v1.66.4/mediabunny.min.cjs' });
+  const result = await page.evaluate(async () => {
+    const { Output, WebMOutputFormat, BufferTarget, CanvasSource, Quality } = window.Mediabunny;
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 180;
+    const context = canvas.getContext('2d');
+    const target = new BufferTarget();
+    const output = new Output({ format: new WebMOutputFormat(), target });
+    const source = new CanvasSource(canvas, {
+      codec: 'vp8',
+      quality: new Quality({ bitrate: 1_000_000 })
+    });
+    output.addVideoTrack(source, { frameRate: 24 });
+    await output.start();
+    for (let i = 0; i < 24; i++) {
+      context.fillStyle = i % 2 ? '#e22' : '#26c';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = '#fff';
+      context.fillRect(i * 10, 40, 40, 40);
+      await source.add(i / 24, 1 / 24);
+    }
+    source.close();
+    await output.finalize();
+    const buffer = target.buffer;
+    if (!buffer || !buffer.byteLength) throw new Error('Mediabunny returned an empty WebM');
+    const blob = new Blob([buffer], { type: 'video/webm' });
+    const video = document.createElement('video');
+    video.muted = true;
+    video.src = URL.createObjectURL(blob);
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = () => reject(new Error('Chromium could not read the generated WebM'));
+    });
+    video.currentTime = 0.5;
+    await new Promise((resolve, reject) => {
+      video.onseeked = resolve;
+      video.onerror = () => reject(new Error('Chromium could not seek the generated WebM'));
+    });
+    const decoded = document.createElement('canvas');
+    decoded.width = 320;
+    decoded.height = 180;
+    const decodedContext = decoded.getContext('2d');
+    decodedContext.drawImage(video, 0, 0);
+    const pixel = [...decodedContext.getImageData(5, 5, 1, 1).data];
+    URL.revokeObjectURL(video.src);
+    return {
+      bytes: buffer.byteLength,
+      duration: video.duration,
+      width: video.videoWidth,
+      height: video.videoHeight,
+      decodedPixel: pixel
+    };
+  });
+  console.log('MEDIABUNNY_WEBM_DECODE_DIAGNOSTIC', JSON.stringify(result));
+  expect(result.bytes).toBeGreaterThan(1000);
+  expect(result.duration).toBeGreaterThanOrEqual(0.9);
+  expect(result.width).toBe(320);
+  expect(result.height).toBe(180);
+  expect(result.decodedPixel[3]).toBe(255);
+});
