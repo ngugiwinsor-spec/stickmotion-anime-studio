@@ -881,6 +881,7 @@ el('exportVideo').onclick=async()=>{
  const originalFrame=frame,originalAudioTime=audioEl.currentTime;
  const stream=c.captureStream(fps);
  let audioStream=null;
+ sfxInit();if(sfxDestination)sfxDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
  window.__stickMotionExporting=true;
  try{
   if(audioEl.src&&typeof audioEl.captureStream==='function'){
@@ -902,8 +903,11 @@ el('exportVideo').onclick=async()=>{
   }
   const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const started=performance.now();
+  if(sfxContext?.state==='suspended')await sfxContext.resume();
+  const sfxExportStart=sfxContext?.currentTime||0;
   for(let i=0;i<=totalFrames;i++){
    frame=Math.min(120,i);
+   sfxAtFrame(frame,sfxExportStart+i/fps);
    el('frame').value=frame;el('frameLabel').textContent=frame;
    applyKey(frame);draw();renderFrames();
    videoStatus('Rendering '+Math.round(i/totalFrames*100)+'%');
@@ -929,7 +933,7 @@ el('exportVideo').onclick=async()=>{
   if(audioEl.src&&Number.isFinite(originalAudioTime))audioEl.currentTime=originalAudioTime;
   frame=originalFrame;el('frame').value=frame;el('frameLabel').textContent=frame;
   applyKey(frame);draw();renderFrames();
-  stream.getTracks().forEach(t=>t.stop());if(sfxDestination)sfxDestination.stream.getTracks().forEach(t=>t.stop());
+  stream.getTracks().forEach(t=>t.stop());if(sfxDestination)sfxDestination.stream.getTracks().forEach(t=>t.stop());if(sfxDestination)sfxDestination.stream.getTracks().forEach(t=>t.stop());
  }
 };
 
