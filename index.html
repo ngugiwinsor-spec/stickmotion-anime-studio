@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v6.0 • Full-Body Motion</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v6.1 • Anime Facial Acting</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -55,7 +55,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="row"><button id="ikAuto">Auto-detect chain</button><button id="ikAutoLeft">Auto left</button><button id="ikAutoRight">Auto right</button></div><div class="row"><button id="ikDragTarget">Drag hand / foot on canvas</button></div><div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
 <div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Use Auto-detect after naming and attaching your limb parts. The upper limb may be attached to a torso.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
-<section id="facePanel"><h3>Facial animation · v4.4</h3>
+<section id="facePanel"><h3>Anime facial acting · v6.1</h3>
 <label>Face target (select the head layer first)</label><div id="faceTargetName" class="small">No head selected</div>
 <label>Expression</label><select id="faceExpression"><option value="neutral">Neutral</option><option value="happy">Happy</option><option value="sad">Sad</option><option value="angry">Angry</option><option value="surprised">Surprised</option><option value="determined">Determined</option></select>
 <label>Eye gaze X</label><input id="gazeX" type="range" min="-1" max="1" step=".05" value="0">
@@ -63,8 +63,8 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Blink</label><input id="blink" type="range" min="0" max="1" step=".05" value="0">
 <label>Mouth open</label><input id="mouthOpen" type="range" min="0" max="1" step=".05" value=".15">
 <label>Eyebrow angle</label><input id="browAngle" type="range" min="-1" max="1" step=".05" value="0">
-<div class="row"><button id="faceCapture" class="primary">Capture face key</button><button id="faceReset">Reset face</button></div>
-<div class="hint">Select the head artwork layer to attach a live facial overlay. Gaze, blinking, expression and mouth movement can be captured on the timeline. The overlay is editable and does not alter your source artwork.</div></section><section id="cameraPanel"><h3>Camera & cinematics · v4.5</h3>
+<div class="row"><button id="faceCapture" class="primary">Capture face key</button><button id="faceReset">Reset face</button><button id="faceClearKeys">Clear face keys</button></div>
+<div class="hint">Select the head artwork layer to attach a live facial overlay. Gaze, blinking, expression and mouth movement can be captured on the timeline. The overlay is editable and does not alter your source artwork. Procedural actions can also generate matching expressions and facial keyframes.</div></section><section id="cameraPanel"><h3>Camera & cinematics · v4.5</h3>
 <label>Camera X</label><input id="camX" type="range" min="-960" max="960" value="0">
 <label>Camera Y</label><input id="camY" type="range" min="-540" max="540" value="0">
 <label>Zoom</label><input id="camZoom" type="range" min=".25" max="3" step=".01" value="1">
@@ -139,6 +139,10 @@ function setExpression(v){face.expression=v;const presets={neutral:[0,0,.0,.15,0
 el('faceExpression').onchange=e=>{setExpression(e.target.value)};
 [['gazeX','gx'],['gazeY','gy'],['blink','blink'],['mouthOpen','mouth'],['browAngle','brow']].forEach(([id,k])=>el(id).oninput=e=>{face[k]=Number(e.target.value);draw()});
 el('faceReset').onclick=()=>{Object.assign(face,{expression:'neutral',gx:0,gy:0,blink:0,mouth:.15,brow:0});syncFace();draw()};
+el('faceClearKeys').onclick=()=>{Object.keys(faceKeys).forEach(k=>delete faceKeys[k]);renderFrames();motionStatus('Facial animation keys cleared; existing body animation remains.')};
+const previousDeleteKey=el('deleteKey').onclick;
+el('deleteKey').onclick=()=>{previousDeleteKey();delete faceKeys[frame];renderFrames();draw()};
+
 function faceSnapshot(){return {...face}}
 function restoreFace(o){if(!o)return;Object.assign(face,o);syncFace()}
 el('faceCapture').onclick=()=>{faceKeys[frame]=faceSnapshot();renderFrames()};
@@ -470,6 +474,19 @@ el('generateMotion').onclick=()=>{
    if(sel>=0){parts[sel].y=base[sel].y-(preset==='jump'?90*Math.sin(Math.PI*t):Math.abs(Math.sin(phase))*amp);parts[sel].rot=base[sel].rot+Math.sin(phase)*amp*.35}
   }
   keys[f]=snap();
+  const acting={
+   idle:'neutral',walk:'neutral',run:'determined',jump:t<.25?'determined':t<.7?'surprised':'determined',
+   attack:t<.25?'angry':t<.5?'determined':'angry',
+   dodge:t<.45?'surprised':'determined',crouch:'determined',celebrate:'happy'
+  }[preset]||'neutral';
+  const expressions={
+   neutral:{gx:0,gy:0,blink:0,mouth:.15,brow:0},
+   happy:{gx:0,gy:-.05,blink:0,mouth:.25,brow:-.25},
+   angry:{gx:0,gy:0,blink:0,mouth:.12,brow:.75},
+   surprised:{gx:0,gy:-.25,blink:0,mouth:.8,brow:-.35},
+   determined:{gx:.1,gy:0,blink:0,mouth:.08,brow:.55}
+  };
+  face.expression=acting;Object.assign(face,expressions[acting]);faceKeys[f]=faceSnapshot();
  });
  parts.forEach((p,i)=>{const b=base[i];p.x=b.x;p.y=b.y;p.rot=b.rot;p.scale=b.scale;p.opacity=b.opacity});
  frame=0;el('frame').value=0;el('frameLabel').textContent=0;
