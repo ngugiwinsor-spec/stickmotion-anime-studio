@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.7 • Interactive IK Dragging</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.8 • Torso-Attached IK</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -47,13 +47,13 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="row"><button data-pivot="hip">Hip</button><button data-pivot="knee">Knee</button><button data-pivot="ankle">Ankle</button></div>
 <div class="hint">Attach limbs to a torso or upper limb to create a parent-child rig. Child parts inherit parent rotation and position. Set the pivot at the joint for natural rotation.</div></section>
 <section id="ikPanel"><h3>Inverse kinematics · v5.2</h3>
-<div class="hint">Choose a three-part chain: upper limb (root), lower limb (middle), and hand/foot (end). The root must be an unparented layer for this solver. The solver adjusts the two joint angles to reach a stage position.</div>
+<div class="hint">Choose a three-part chain: upper limb (root), lower limb (middle), and hand/foot (end). The root must be an upper limb can be attached to a torso. The solver adjusts the two joint angles to reach a stage position.</div>
 <label>Root / upper limb</label><select id="ikRoot"></select>
 <label>Middle / lower limb</label><select id="ikMiddle"></select>
 <label>End / hand or foot</label><select id="ikEnd"></select>
 <div class="row"><label style="flex:1">Target X<input id="ikX" type="number" value="180" step="1"></label><label style="flex:1">Target Y<input id="ikY" type="number" value="80" step="1"></label></div>
 <div class="row"><button id="ikAuto">Auto-detect chain</button></div><div class="row"><button id="ikDragTarget">Drag hand / foot on canvas</button></div><div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
-<div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Use Auto-detect after naming and attaching your limb parts. The root must be unparented.</div></section>
+<div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Use Auto-detect after naming and attaching your limb parts. The upper limb may be attached to a torso.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
 <section id="facePanel"><h3>Facial animation · v4.4</h3>
 <label>Face target (select the head layer first)</label><div id="faceTargetName" class="small">No head selected</div>
@@ -339,16 +339,14 @@ function refreshIKMenus(){
  });
 }
 function autoDetectIK(){
- const find=(re)=>parts.findIndex(p=>re.test(String(p.name||'').toLowerCase()));
- const roots=parts.map((p,i)=>({p,i})).filter(x=>(x.p.parent??-1)===-1);
- const root=roots.find(x=>/upper.?arm|arm.?upper|thigh|upper.?leg/.test(String(x.p.name||'').toLowerCase()));
- if(!root){ikStatus('Name an unparented layer Upper Arm or Thigh, then attach Forearm/Shin and Hand/Foot beneath it.');return}
- const mid=parts.findIndex((p)=>p.parent===root.i&&/forearm|lower.?arm|shin|calf|lower.?leg/.test(String(p.name||'').toLowerCase()));
- if(mid<0){ikStatus('Could not find a child named Forearm, Lower Arm, Shin or Calf.');return}
- const end=parts.findIndex((p)=>p.parent===mid&&/hand|foot/.test(String(p.name||'').toLowerCase()));
- if(end<0){ikStatus('Could not find a child named Hand or Foot beneath the lower limb.');return}
+ const root=parts.map((p,i)=>({p,i})).find(x=>/upper.?arm|arm.?upper|thigh|upper.?leg/.test(String(x.p.name||'').toLowerCase()));
+ if(!root){ikStatus('Name a layer Upper Arm or Thigh, then attach Forearm/Shin and Hand/Foot beneath it.');return}
+ const mid=parts.findIndex(p=>p.parent===root.i&&/forearm|lower.?arm|shin|calf|lower.?leg/.test(String(p.name||'').toLowerCase()));
+ if(mid<0){ikStatus('Attach a part named Forearm, Lower Arm, Shin or Calf directly beneath the upper limb.');return}
+ const end=parts.findIndex(p=>p.parent===mid&&/hand|foot/.test(String(p.name||'').toLowerCase()));
+ if(end<0){ikStatus('Attach a part named Hand or Foot beneath the lower limb.');return}
  el('ikRoot').value=String(root.i);el('ikMiddle').value=String(mid);el('ikEnd').value=String(end);
- ikStatus('Detected '+root.p.name+' → '+parts[mid].name+' → '+parts[end].name+'. Adjust the target and solve.');
+ ikStatus('Detected '+(root.p.parent>=0?parts[root.p.parent].name+' → ':'')+root.p.name+' → '+parts[mid].name+' → '+parts[end].name+'. Adjust the target and solve.');
 }
 el('ikAuto').onclick=autoDetectIK;
 const ikStatus=msg=>{el('ikStatus').textContent=msg};
@@ -356,17 +354,21 @@ function solveIK(capture,quiet){
  const ri=Number(el('ikRoot').value),mi=Number(el('ikMiddle').value),ei=Number(el('ikEnd').value);
  if(!parts[ri]||!parts[mi]||!parts[ei]||new Set([ri,mi,ei]).size!==3){ikStatus('Choose three different valid layers');return}
  const root=parts[ri],mid=parts[mi],end=parts[ei];
- if((root.parent??-1)!==-1||mid.parent!==ri||end.parent!==mi){ikStatus('Attach the chain in order: body → upper limb → lower limb → hand/foot. Root must be unparented.');return}
- const a=Math.hypot(mid.x,mid.y),b=Math.hypot(end.x,end.y);
- if(a<.001||b<.001){ikStatus('Set the lower limb and end-part pivots/positions so both segment lengths are greater than zero');return}
- const tx=Number(el('ikX').value),ty=Number(el('ikY').value),dx=tx-root.x,dy=ty-root.y;
+ if(mid.parent!==ri||end.parent!==mi){ikStatus('Attach the chain in order: torso (optional) → upper limb → lower limb → hand/foot.');return}
+ const parentWorld=(root.parent??-1)>=0?worldTransform(root.parent):{x:0,y:0,r:0,sc:1};
+ const rootWorld=worldTransform(ri),rootScale=rootWorld.sc;
+ const a=Math.hypot(mid.x,mid.y)*rootScale,b=Math.hypot(end.x,end.y)*rootScale*mid.scale;
+ if(a<.001||b<.001||!Number.isFinite(a+b)){ikStatus('Set the limb pivots and positions so both segment lengths are greater than zero');return}
+ const tx=Number(el('ikX').value),ty=Number(el('ikY').value),dx=tx-rootWorld.x,dy=ty-rootWorld.y;
  const raw=Math.hypot(dx,dy),d=Math.max(Math.abs(a-b)+.001,Math.min(a+b-.001,raw));
  const theta=Math.atan2(dy,dx),alpha=Math.atan2(mid.y,mid.x),beta=Math.atan2(end.y,end.x);
- const c1=Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d)));
- const c2=Math.max(-1,Math.min(1,(d*d-a*a-b*b)/(2*a*b)));
- const bend=Math.acos(c1),joint=Math.acos(c2);
- root.rot=(theta-bend-alpha)*180/Math.PI;
- mid.rot=(joint+alpha-beta)*180/Math.PI;
+ const cosine=Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d)));
+ const bend=Math.acos(cosine),rootWorldAngle=theta-bend-alpha;
+ const midWorldX=rootWorld.x+rootScale*(Math.cos(rootWorldAngle)*mid.x-Math.sin(rootWorldAngle)*mid.y);
+ const midWorldY=rootWorld.y+rootScale*(Math.sin(rootWorldAngle)*mid.x+Math.cos(rootWorldAngle)*mid.y);
+ const endAngle=Math.atan2(ty-midWorldY,tx-midWorldX);
+ root.rot=(rootWorldAngle-parentWorld.r)*180/Math.PI;
+ mid.rot=(endAngle-rootWorldAngle-beta)*180/Math.PI;
  draw();syncControls();if(!quiet)pushHistory();
  if(capture){keys[frame]=snap();renderFrames();ikStatus('Solved and captured at frame '+frame)}
  else if(!quiet)ikStatus('IK solved · '+(raw>d?'Target clamped to reachable range':'target reached approximately'));
