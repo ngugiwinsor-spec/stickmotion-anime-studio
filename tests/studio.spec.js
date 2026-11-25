@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v6.8');
+  await expect(page.locator('.badge')).toContainText('v6.9');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -63,5 +63,21 @@ test('video export quality changes recorder bitrate', async ({ page }) => {
   expect(await page.evaluate(() => exportVideoBitrate())).toBe(4000000);
   await quality.selectOption('16000000');
   expect(await page.evaluate(() => exportVideoBitrate())).toBe(16000000);
+  expect(errors).toEqual([]);
+});
+
+test('anime afterimage trails render and respond to controls', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  const before = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  await page.locator('#trailCount').selectOption('4');
+  await page.locator('#trailStrength').fill('100');
+  await page.locator('#motionTrails').check();
+  const after = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  expect(after).not.toBe(before);
+  await page.locator('#motionTrails').uncheck();
   expect(errors).toEqual([]);
 });
