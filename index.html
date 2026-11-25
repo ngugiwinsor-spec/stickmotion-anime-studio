@@ -944,6 +944,7 @@ el('exportEpisodeVideo').onclick=async()=>{
  if(!c.captureStream||!window.MediaRecorder||!mime){videoStatus('Video export unsupported in this browser');return}
  if(!episodeScenes.length){videoStatus('Add a scene first');return}
  if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play'}
+ resetEpisodeSfxEvents();
  saveActiveScene();persistScenes();
  const savedSceneId=activeSceneId,savedState=projectState(),savedDuration=el('sceneDuration').value;
  const savedTransition=el('sceneTransition').value,savedTransitionDuration=el('transitionDuration').value;
@@ -1317,12 +1318,14 @@ window.__stickMotionLoadProjectState=state=>loadProjectState(state);
 
 /* v7.9: sound effects follow each scene into full-episode WebM exports */
 let episodeSfxEvents=[];
+function resetEpisodeSfxEvents(){episodeSfxEvents.length=0}
 function scheduleEpisodeSfx(sceneId,f,when){
  const matched=sfxCues.filter(x=>x.frame===f);
  matched.forEach(x=>episodeSfxEvents.push({sceneId,frame:f,type:x.type,offset:when}));
  sfxAtFrame(f,when);
 }
 window.__stickMotionScheduleEpisodeSfx=(sceneId,f,when)=>scheduleEpisodeSfx(sceneId,f,when);
+window.__stickMotionResetEpisodeSfxEvents=()=>resetEpisodeSfxEvents();
 window.__stickMotionEpisodeSfxEvents=episodeSfxEvents;
 
 </script></body></html>
