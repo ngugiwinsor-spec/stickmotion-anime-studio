@@ -46,6 +46,14 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="row"><button data-pivot="shoulder">Shoulder</button><button data-pivot="elbow">Elbow</button><button data-pivot="wrist">Wrist</button></div>
 <div class="row"><button data-pivot="hip">Hip</button><button data-pivot="knee">Knee</button><button data-pivot="ankle">Ankle</button></div>
 <div class="hint">Attach limbs to a torso or upper limb to create a parent-child rig. Child parts inherit parent rotation and position. Set the pivot at the joint for natural rotation.</div></section>
+<section id="ikPanel"><h3>Inverse kinematics · v5.2</h3>
+<div class="hint">Choose a three-part chain: upper limb (root), lower limb (middle), and hand/foot (end). The root must be attached to the character body or be a root layer. The solver adjusts the two joint angles to reach a stage position.</div>
+<label>Root / upper limb</label><select id="ikRoot"></select>
+<label>Middle / lower limb</label><select id="ikMiddle"></select>
+<label>End / hand or foot</label><select id="ikEnd"></select>
+<div class="row"><label style="flex:1">Target X<input id="ikX" type="number" value="180" step="1"></label><label style="flex:1">Target Y<input id="ikY" type="number" value="80" step="1"></label></div>
+<div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
+<div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Root part must have no parent for this first solver.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
 <section id="facePanel"><h3>Facial animation · v4.4</h3>
 <label>Face target (select the head layer first)</label><div id="faceTargetName" class="small">No head selected</div>
@@ -322,6 +330,40 @@ let sceneAutosaveTimer=null;
 const drawBeforeSceneAutosave=draw;
 draw=function(){drawBeforeSceneAutosave();if(activeSceneId){clearTimeout(sceneAutosaveTimer);sceneAutosaveTimer=setTimeout(()=>{saveActiveScene();persistScenes()},1200)}};
 
+/* v5.2: two-joint inverse kinematics solver for root-level limbs */
+function refreshIKMenus(){
+ ['ikRoot','ikMiddle','ikEnd'].forEach(id=>{
+  const q=el(id),old=q.value;q.innerHTML='';
+  parts.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.name||('Part '+(i+1));q.appendChild(o)});
+  if(parts[Number(old)])q.value=old;
+ });
+}
+const ikStatus=msg=>{el('ikStatus').textContent=msg};
+function solveIK(capture){
+ const ri=Number(el('ikRoot').value),mi=Number(el('ikMiddle').value),ei=Number(el('ikEnd').value);
+ if(!parts[ri]||!parts[mi]||!parts[ei]||new Set([ri,mi,ei]).size!==3){ikStatus('Choose three different valid layers');return}
+ const root=parts[ri],mid=parts[mi],end=parts[ei];
+ if((root.parent??-1)!==-1||mid.parent!==ri||end.parent!==mi){ikStatus('Attach the chain in order: body → upper limb → lower limb → hand/foot. Root must be unparented.');return}
+ const a=Math.hypot(mid.x,mid.y),b=Math.hypot(end.x,end.y);
+ if(a<.001||b<.001){ikStatus('Set the lower limb and end-part pivots/positions so both segment lengths are greater than zero');return}
+ const tx=Number(el('ikX').value),ty=Number(el('ikY').value),dx=tx-root.x,dy=ty-root.y;
+ const raw=Math.hypot(dx,dy),d=Math.max(Math.abs(a-b)+.001,Math.min(a+b-.001,raw));
+ const theta=Math.atan2(dy,dx),alpha=Math.atan2(mid.y,mid.x),beta=Math.atan2(end.y,end.x);
+ const c1=Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d)));
+ const c2=Math.max(-1,Math.min(1,(d*d-a*a-b*b)/(2*a*b)));
+ const bend=Math.acos(c1),joint=Math.acos(c2);
+ root.rot=(theta-bend-alpha)*180/Math.PI;
+ mid.rot=(joint+alpha-beta)*180/Math.PI;
+ draw();syncControls();pushHistory();
+ if(capture){keys[frame]=snap();renderFrames();ikStatus('Solved and captured at frame '+frame)}
+ else ikStatus('IK solved · '+(raw>d?'Target clamped to reachable range':'target reached approximately'));
+}
+el('ikSolve').onclick=()=>solveIK(false);
+el('ikCapture').onclick=()=>solveIK(true);
+const refreshIKMenusOriginal=refreshParentMenu;
+refreshParentMenu=function(){refreshIKMenusOriginal();refreshIKMenus()};
+refreshIKMenus();
+ 
 /* v5.1: reusable procedural motion actions */
 const motionStatus=msg=>{const n=el('motionStatus');if(n)n.textContent=msg};
 el('generateMotion').onclick=()=>{
