@@ -302,7 +302,8 @@ function reorderParts(from,to){
  const parentObjects=new Map(parts.map(p=>[p,p.parent>=0?parts[p.parent]:null]));
  const moved=parts.splice(from,1)[0];parts.splice(to,0,moved);
  parts.forEach(p=>{const parent=parentObjects.get(p);p.parent=parent?parts.indexOf(parent):-1});
- sel=to;renderLayers();syncControls();refreshParentMenu();draw();pushHistory();
+ Object.values(keys).forEach(frameParts=>{if(Array.isArray(frameParts)&&frameParts.length>Math.max(from,to)){const pose=frameParts.splice(from,1)[0];frameParts.splice(to,0,pose)}});
+ sel=to;renderLayers();syncControls();refreshParentMenu();renderFrames();draw();pushHistory();
 }
 el('up').onclick=()=>{if(sel>0)reorderParts(sel,sel-1)};
 el('down').onclick=()=>{if(sel>=0&&sel<parts.length-1)reorderParts(sel,sel+1)};
@@ -319,7 +320,8 @@ el('remove').onclick=()=>{
  });
  parts.splice(sel,1);
  parts.forEach(p=>{if(p.parent>sel)p.parent--;else if(p.parent===sel)p.parent=-1});
- sel=Math.min(sel,parts.length-1);renderLayers();syncControls();refreshParentMenu();draw();pushHistory()
+ Object.values(keys).forEach(frameParts=>{if(Array.isArray(frameParts))frameParts.splice(sel,1)});
+ sel=Math.min(sel,parts.length-1);renderLayers();syncControls();refreshParentMenu();renderFrames();draw();pushHistory()
 };
 
 /* v4.6: project persistence, autosave, undo/redo */
