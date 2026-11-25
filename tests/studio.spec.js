@@ -312,6 +312,21 @@ test('sound cues can be duplicated independently and persist', async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+test('individual sound cue volume is editable and persists', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.getByRole('button', { name: 'Duplicate sound cue at frame 0' }).click();
+  const volumes = page.getByRole('slider', { name: 'Sound cue volume at frame 0' });
+  await volumes.nth(0).fill('35');
+  await page.getByRole('button', { name: 'Save sound cue at frame 0' }).nth(0).click();
+  await expect(page.locator('#sfxCueList')).toContainText('35%');
+  const state = await page.evaluate(() => window.__stickMotionProjectState());
+  expect(state.soundEffects.map(c => c.volume)).toEqual([35,100]);
+  await page.evaluate(saved => window.__stickMotionLoadProjectState(saved), state);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.volume))).toEqual([35,100]);
+  expect(await page.evaluate(() => window.__stickMotionProjectState().soundEffects.map(c => c.volume))).toEqual([35,100]);
+});
+
 test('sound effects volume control updates preview and export mix level', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
