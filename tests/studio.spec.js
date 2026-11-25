@@ -16,10 +16,10 @@ test('demo rig and procedural action work', async ({ page }) => {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.locator('#addDemo').click();
-  await expect(page.locator('#layers .layer')).toHaveCount(5);
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
   await page.locator('#motionPreset').selectOption('attack');
   await page.locator('#generateMotion').click();
-  await expect(page.locator('#motionStatus')).not.toContainText('Generate idle');
+  await expect(page.locator('#cinematicStatus')).toContainText('Impact marker added at frame');
   expect(errors).toEqual([]);
 });
 
