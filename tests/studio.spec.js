@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.1');
+  await expect(page.locator('.badge')).toContainText('v7.2');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -140,5 +140,28 @@ test('advanced motion curves shape body interpolation predictably', async ({ pag
   expect(values.overshoot).toBeGreaterThan(100);
   expect(values.bounce).toBeGreaterThan(75);
   expect(values.bounce).toBeLessThan(78);
+  expect(errors).toEqual([]);
+});
+
+test('character acting accents change actual keyed poses and facial keys', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#motionPreset').selectOption('idle');
+  await page.locator('#generateMotion').click();
+  const before = await page.evaluate(() => JSON.stringify(keys));
+  await page.locator('#actingAccent').selectOption('confident');
+  await page.locator('#actingStrength').fill('100');
+  await page.locator('#applyActingAccent').click();
+  const after = await page.evaluate(() => JSON.stringify(keys));
+  expect(after).not.toBe(before);
+  await expect(page.locator('#actingStatus')).toContainText('accent applied to 9 keyed poses');
+  const changed = await page.evaluate(() => {
+    const torso = parts.findIndex(p => /torso|body|chest/.test(p.name.toLowerCase()));
+    return torso >= 0 && Object.keys(keys).some(f => Math.abs(keys[f][torso].rot) > 0.1);
+  });
+  expect(changed).toBeTruthy();
   expect(errors).toEqual([]);
 });
