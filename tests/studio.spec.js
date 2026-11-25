@@ -1,0 +1,53 @@
+const { test, expect } = require('@playwright/test');
+
+test('studio loads without JavaScript errors', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await expect(page).toHaveTitle(/StickMotion Anime Studio/);
+  await expect(page.locator('#stage')).toBeVisible();
+  await expect(page.locator('.badge')).toContainText('v6.7');
+  await page.waitForTimeout(300);
+  expect(errors).toEqual([]);
+});
+
+test('demo rig and procedural action work', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(5);
+  await page.locator('#motionPreset').selectOption('attack');
+  await page.locator('#generateMotion').click();
+  await expect(page.locator('#motionStatus')).not.toContainText('Generate idle');
+  expect(errors).toEqual([]);
+});
+
+test('camera, anime FX and finishing controls respond', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#applyCameraPreset').click();
+  await page.locator('#cameraPreset').selectOption('hero');
+  await page.locator('#applyCameraPreset').click();
+  await expect(page.locator('#camZoom')).toHaveValue('1.18');
+
+  await page.locator('#animeEffect').selectOption('aura');
+  await page.locator('#effectIntensity').fill('75');
+  await page.locator('#characterGlow').check();
+  await page.locator('#glowStrength').fill('28');
+  await page.locator('#eyeGlow').fill('70');
+  await page.locator('#frame').fill('45');
+  await expect(page.locator('#effectIntensityLabel')).toContainText('75');
+  await expect(page.locator('#eyeGlowLabel')).toContainText('70');
+  expect(errors).toEqual([]);
+});
+
+test('PNG export starts successfully', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#exportPng').click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.png$/i);
+});
