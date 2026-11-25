@@ -258,17 +258,21 @@ syncFace();
 el('attachPart').onclick=()=>{
  if(sel<0)return;
  const value=el('parentSelect').value;
- if(value===""){parts[sel].parent=-1;refreshParentMenu();draw();return}
- const pi=Number(value);if(!Number.isInteger(pi)||pi<0||pi>=parts.length||pi===sel)return;
- let cursor=pi,visited=new Set([sel]);
- while(cursor>=0&&cursor<parts.length&&!visited.has(cursor)){visited.add(cursor);cursor=parts[cursor].parent??-1}
- if(cursor>=0&&visited.has(cursor)){alert('That attachment would create a rig cycle. Choose a different parent.');return}
- const childWorld=worldTransform(sel),parentWorld=worldTransform(pi);
- const dx=childWorld.x-parentWorld.x,dy=childWorld.y-parentWorld.y,angle=-parentWorld.r*Math.PI/180;
- const localX=(dx*Math.cos(angle)-dy*Math.sin(angle))/(parentWorld.sc||1);
- const localY=(dx*Math.sin(angle)+dy*Math.cos(angle))/(parentWorld.sc||1);
- parts[sel].x=localX;parts[sel].y=localY;parts[sel].parent=pi;
- refreshParentMenu();draw()
+ const world=worldTransform(sel);
+ if(value===""){
+  parts[sel].parent=-1;parts[sel].x=world.x;parts[sel].y=world.y;parts[sel].rot=world.r;parts[sel].scale=world.sc;
+  refreshParentMenu();syncControls();draw();return;
+ }
+ const pi=Number(value);
+ if(!Number.isInteger(pi)||pi<0||pi>=parts.length||pi===sel||isDescendantOf(pi,sel))return;
+ const parentWorld=worldTransform(pi);
+ if(!Number.isFinite(parentWorld.sc)||Math.abs(parentWorld.sc)<1e-8)return;
+ const dx=world.x-parentWorld.x,dy=world.y-parentWorld.y,angle=-parentWorld.r*Math.PI/180;
+ const co=Math.cos(angle),si=Math.sin(angle),p=parts[sel];
+ p.x=(dx*co-dy*si)/parentWorld.sc;
+ p.y=(dx*si+dy*co)/parentWorld.sc;
+ p.rot=world.r-parentWorld.r;p.scale=world.sc/parentWorld.sc;p.parent=pi;
+ refreshParentMenu();syncControls();draw();
 };
 
 
