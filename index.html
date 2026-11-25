@@ -951,7 +951,7 @@ el('exportEpisodeVideo').onclick=async()=>{
  const savedTransition=el('sceneTransition').value,savedTransitionDuration=el('transitionDuration').value;
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
  const totalFrames=episodeScenes.reduce((n,sc)=>n+Math.max(1,Math.ceil((Number(sc.duration)||5)*fps)),0);
- const captureCanvas=document.createElement('canvas');captureCanvas.width=c.width;captureCanvas.height=c.height;const captureCtx=captureCanvas.getContext('2d');captureCtx.drawImage(c,0,0);const stream=captureCanvas.captureStream(0),videoTrack=stream.getVideoTracks()[0],chunks=[];let requestedFrames=0,recorderDataEvents=0;
+ const stream=c.captureStream(fps),videoTrack=stream.getVideoTracks()[0],chunks=[];let requestedFrames=0,recorderDataEvents=0;
  sfxInit();if(sfxDestination)sfxDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
  let recorder=null,prevFrame=null,rendered=0;
  window.__stickMotionExporting=true;
@@ -1002,7 +1002,7 @@ el('exportEpisodeVideo').onclick=async()=>{
       ctx.save();ctx.beginPath();ctx.rect(0,0,c.width*progress,c.height);ctx.clip();ctx.drawImage(temp,0,0);ctx.restore();
      }else ctx.drawImage(temp,0,0);
     }
-    captureCtx.clearRect(0,0,captureCanvas.width,captureCanvas.height);captureCtx.drawImage(c,0,0,captureCanvas.width,captureCanvas.height);if(videoTrack&&typeof videoTrack.requestFrame==='function'){videoTrack.requestFrame();requestedFrames++}
+    if(videoTrack&&typeof videoTrack.requestFrame==='function'){videoTrack.requestFrame();requestedFrames++}
     rendered++;
     videoStatus('Episode render '+Math.round(rendered/totalFrames*100)+'% · Scene '+(si+1)+'/'+episodeScenes.length);
     await delay(Math.max(0,start+rendered*1000/fps-performance.now()));
@@ -1016,7 +1016,7 @@ el('exportEpisodeVideo').onclick=async()=>{
   await delay(250);
   recorder.stop();await finished;
   const blob=new Blob(chunks,{type:mime});
-  if(!blob.size)throw new Error('Empty episode video (chunks='+chunks.length+', dataEvents='+recorderDataEvents+', requestedFrames='+requestedFrames+', track='+videoTrack?.readyState+', muted='+videoTrack?.muted+', settings='+JSON.stringify(videoTrack?.getSettings?.())+', canvas='+captureCanvas.width+'x'+captureCanvas.height+', mime='+recorder.mimeType+')');
+  if(!blob.size)throw new Error('Empty episode video (chunks='+chunks.length+', dataEvents='+recorderDataEvents+', requestedFrames='+requestedFrames+', track='+videoTrack?.readyState+', muted='+videoTrack?.muted+', settings='+JSON.stringify(videoTrack?.getSettings?.())+', canvas='+c.width+'x'+c.height+', mime='+recorder.mimeType+')');
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download='stickmotion-full-episode.webm';a.click();
   setTimeout(()=>URL.revokeObjectURL(url),30000);
