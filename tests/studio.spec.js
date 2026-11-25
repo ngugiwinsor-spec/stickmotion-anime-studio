@@ -243,7 +243,7 @@ test('viseme dialogue adds mouth-shape keys and approximate word timing', async 
 });
 
 
-test('sound effects cues are added at timeline frames and can be previewed', async ({ page }) => {
+test('sound effects cues are editable, persistent, and previewable', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
@@ -255,6 +255,15 @@ test('sound effects cues are added at timeline frames and can be previewed', asy
   await page.locator('#addSfxCue').click();
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[0,'impact'],[18,'whoosh']]);
   await expect(page.locator('#sfxStatus')).toContainText('2 cues');
+  await page.locator('#sfxCueList').getByRole('button', { name: 'Frame 18 · whoosh' }).click();
+  await expect(page.locator('#frame')).toHaveValue('18');
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  expect(saved.soundEffects).toHaveLength(2);
+  await page.locator('#sfxCueList').getByRole('button', { name: 'Delete sound cue at frame 18' }).click();
+  await expect(page.locator('#sfxStatus')).toContainText('1 cue');
+  await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
+  await expect(page.locator('#sfxStatus')).toContainText('2 cues');
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame, c.type]))).toEqual([[0, 'impact'], [18, 'whoosh']]);
   await page.locator('#previewSfx').click();
   await expect(page.locator('#sfxStatus')).toContainText('Previewing whoosh');
   await page.locator('#clearSfxCues').click();
