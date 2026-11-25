@@ -140,7 +140,7 @@ const previousDraw=draw;
 draw=function(){
 /* Draw each rig part in its complete world transform; this supports nested parent chains. */
 ctx.clearRect(0,0,c.width,c.height);if(!transparent){ctx.fillStyle=el('bg').value;ctx.fillRect(0,0,c.width,c.height)}
-ctx.save();ctx.translate(c.width/2,c.height/2);
+ctx.save();ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);
 parts.forEach((p,i)=>{if(!p.visible||!p.img)return;let w=worldTransform(i);ctx.save();ctx.translate(w.x,w.y);ctx.rotate(w.r*Math.PI/180);ctx.scale(w.sc,w.sc);ctx.globalAlpha=p.opacity;ctx.drawImage(p.img,-p.px,-p.py);
 if(i===sel){ctx.strokeStyle='#78a0ff';ctx.setLineDash([6,4]);ctx.strokeRect(-p.px-2,-p.py-2,p.img.width+4,p.img.height+4);ctx.setLineDash([]);ctx.fillStyle='#ffd66b';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill()}ctx.restore()});
 /* Facial overlay is anchored to the selected artwork layer and follows its full rig transform. */
@@ -190,9 +190,7 @@ const captureBeforeCamera=el('capture').onclick;
 el('capture').onclick=()=>{captureBeforeCamera();cameraKeys[frame]=cameraSnapshot();renderFrames()};
 const applyBeforeCamera=applyKey;
 applyKey=function(f){applyBeforeCamera(f);let ks=Object.keys(cameraKeys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let a=ks.filter(k=>k<=f).pop(),b=ks.find(k=>k>=f);if(a===undefined)a=ks[0];if(b===undefined)b=ks[ks.length-1];let t=a===b?0:(f-a)/(b-a),mode=el('easing').value;if(mode==='ease')t=t*t*(3-2*t);else if(mode==='easeOut')t=1-(1-t)*(1-t);else if(mode==='easeIn')t=t*t;else if(mode==='hold')t=0;['x','y','zoom','rot'].forEach(k=>camera[k]=cameraKeys[a][k]+(cameraKeys[b][k]-cameraKeys[a][k])*t);syncCamera()};
-const drawBeforeCamera=draw;
-draw=function(){ctx.save();ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);ctx.translate(-c.width/2,-c.height/2);ctx.restore();drawBeforeCameraWithCamera()};
-function drawBeforeCameraWithCamera(){ctx.save();ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);ctx.translate(-c.width/2,-c.height/2);drawBeforeCamera();ctx.restore()}
+
 const exportBeforeCamera=el('exportJson').onclick;
 el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'4.5',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},camera,cameraKeys,parts:parts.map(({img,...p})=>({...p,src:null})),keyframes:keys,faceKeys};download(JSON.stringify(data,null,2),'stickmotion-anime-studio-v4.5.json','application/json')};
 const importBeforeCamera=el('jsonFile').onchange;
