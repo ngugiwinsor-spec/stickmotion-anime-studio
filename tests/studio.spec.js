@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.0');
+  await expect(page.locator('.badge')).toContainText('v7.1');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -113,5 +113,32 @@ test('onion skin shows neighboring poses but is excluded from exports', async ({
   const exportFrame = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
   expect(exportFrame).not.toBe(withOnion);
   await page.evaluate(() => { window.__stickMotionExporting = false; draw(); });
+  expect(errors).toEqual([]);
+});
+
+test('advanced motion curves shape body interpolation predictably', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  const values = await page.evaluate(() => {
+    const pose = () => parts.map(p => ({x:p.x,y:p.y,rot:p.rot,scale:p.scale,opacity:p.opacity}));
+    const start = pose(), end = pose();
+    start[0].x = 0;
+    end[0].x = 100;
+    keys = {0:start,100:end};
+    const read = mode => {
+      document.querySelector('#easing').value = mode;
+      applyKey(50);
+      return parts[0].x;
+    };
+    return {smoother:read('smoother'),anticipate:read('anticipate'),overshoot:read('overshoot'),bounce:read('bounce')};
+  });
+  expect(values.smoother).toBeCloseTo(50, 1);
+  expect(values.anticipate).toBeLessThan(0);
+  expect(values.overshoot).toBeGreaterThan(100);
+  expect(values.bounce).toBeGreaterThan(75);
+  expect(values.bounce).toBeLessThan(78);
   expect(errors).toEqual([]);
 });
