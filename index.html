@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.6 • Draggable Joint Handles</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.7 • Interactive IK Dragging</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -52,7 +52,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Middle / lower limb</label><select id="ikMiddle"></select>
 <label>End / hand or foot</label><select id="ikEnd"></select>
 <div class="row"><label style="flex:1">Target X<input id="ikX" type="number" value="180" step="1"></label><label style="flex:1">Target Y<input id="ikY" type="number" value="80" step="1"></label></div>
-<div class="row"><button id="ikAuto">Auto-detect chain</button></div><div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
+<div class="row"><button id="ikAuto">Auto-detect chain</button></div><div class="row"><button id="ikDragTarget">Drag hand / foot on canvas</button></div><div class="row"><button id="ikSolve" class="primary">Solve pose</button><button id="ikCapture">Solve + capture key</button></div>
 <div class="small" id="ikStatus">Target coordinates are relative to the stage centre. Use Auto-detect after naming and attaching your limb parts. The root must be unparented.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
 <section id="facePanel"><h3>Facial animation · v4.4</h3>
@@ -352,7 +352,7 @@ function autoDetectIK(){
 }
 el('ikAuto').onclick=autoDetectIK;
 const ikStatus=msg=>{el('ikStatus').textContent=msg};
-function solveIK(capture){
+function solveIK(capture,quiet){
  const ri=Number(el('ikRoot').value),mi=Number(el('ikMiddle').value),ei=Number(el('ikEnd').value);
  if(!parts[ri]||!parts[mi]||!parts[ei]||new Set([ri,mi,ei]).size!==3){ikStatus('Choose three different valid layers');return}
  const root=parts[ri],mid=parts[mi],end=parts[ei];
@@ -367,9 +367,9 @@ function solveIK(capture){
  const bend=Math.acos(c1),joint=Math.acos(c2);
  root.rot=(theta-bend-alpha)*180/Math.PI;
  mid.rot=(joint+alpha-beta)*180/Math.PI;
- draw();syncControls();pushHistory();
+ draw();syncControls();if(!quiet)pushHistory();
  if(capture){keys[frame]=snap();renderFrames();ikStatus('Solved and captured at frame '+frame)}
- else ikStatus('IK solved · '+(raw>d?'Target clamped to reachable range':'target reached approximately'));
+ else if(!quiet)ikStatus('IK solved · '+(raw>d?'Target clamped to reachable range':'target reached approximately'));
 }
 el('ikSolve').onclick=()=>solveIK(false);
 el('ikCapture').onclick=()=>solveIK(true);
@@ -483,6 +483,37 @@ const pivotPlacementPointerUp=c.onpointerup;
 c.onpointerup=e=>{
  if(jointHandleDrag){jointHandleDrag=null;pivotMessage('Joint handle moved. The artwork stayed in place.');return}
  if(pivotPlacementPointerUp)pivotPlacementPointerUp(e);
+};
+/* v5.7: interactive IK end-effector dragging */
+let ikTargetDrag=false,ikTargetPointer=false;
+el('ikDragTarget').onclick=()=>{
+ ikTargetDrag=!ikTargetDrag;
+ el('ikDragTarget').textContent=ikTargetDrag?'Cancel target dragging':'Drag hand / foot on canvas';
+ el('ikDragTarget').classList.toggle('primary',ikTargetDrag);
+ ikStatus(ikTargetDrag?'Tap or drag on the stage to move the selected chain end target.':'Target dragging disabled.');
+};
+const beforeIKTargetDown=c.onpointerdown;
+c.onpointerdown=e=>{
+ if(ikTargetDrag){
+  if(sel>=0&&pivotPlacement){if(beforeIKTargetDown)beforeIKTargetDown(e);return}
+  ikTargetPointer=true;c.setPointerCapture(e.pointerId);
+  const p=canvasStagePoint(e);el('ikX').value=Math.round(p.x);el('ikY').value=Math.round(p.y);
+  solveIK(false,true);e.preventDefault();return;
+ }
+ if(beforeIKTargetDown)beforeIKTargetDown(e);
+};
+const beforeIKTargetMove=c.onpointermove;
+c.onpointermove=e=>{
+ if(ikTargetPointer){
+  const p=canvasStagePoint(e);el('ikX').value=Math.round(p.x);el('ikY').value=Math.round(p.y);
+  solveIK(false,true);return;
+ }
+ if(beforeIKTargetMove)beforeIKTargetMove(e);
+};
+const beforeIKTargetUp=c.onpointerup;
+c.onpointerup=e=>{
+ if(ikTargetPointer){ikTargetPointer=false;pushHistory();ikStatus('End-effector target moved and IK pose updated.');return}
+ if(beforeIKTargetUp)beforeIKTargetUp(e);
 };
 /* v5.4: reusable full-character pose library */
 const POSE_LIBRARY_KEY='stickmotion-character-poses-v1';
