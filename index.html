@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.18 • Cue Frame Snap</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.19 • Copy Cue Frame</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -1309,6 +1309,7 @@ function sfxRefresh(){
   const row=document.createElement('div');row.className='row';row.style.margin='5px 0';row.style.alignItems='center';
   const jump=document.createElement('button');jump.type='button';jump.textContent='Frame '+cue.frame+' · '+cue.type;jump.title='Move playhead to this cue';jump.onclick=()=>{frame=cue.frame;el('frame').value=frame;el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()};
   const snap=document.createElement('button');snap.type='button';snap.textContent='Set to playhead';snap.setAttribute('aria-label','Set sound cue to current frame from '+cue.frame);snap.onclick=()=>{cue.frame=Math.max(0,Math.min(120,Math.round(Number(frame)||0)));sfxRefresh();pushHistory()};
+  const copyCue=document.createElement('button');copyCue.type='button';copyCue.textContent='Copy frame';copyCue.setAttribute('aria-label','Copy sound cue frame '+cue.frame);copyCue.onclick=()=>{const value=String(cue.frame);if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(value).then(()=>{el('sfxStatus').textContent='Copied cue frame '+value}).catch(()=>{el('sfxStatus').textContent='Cue frame: '+value})}else{el('sfxStatus').textContent='Cue frame: '+value}};
   const cueFrame=document.createElement('input');cueFrame.type='number';cueFrame.min='0';cueFrame.max='120';cueFrame.step='1';cueFrame.value=cue.frame;cueFrame.setAttribute('aria-label','Sound cue frame '+cue.frame);cueFrame.style.width='68px';
   const cueType=document.createElement('select');cueType.setAttribute('aria-label','Sound cue type at frame '+cue.frame);['impact','whoosh','magic','step','alert'].forEach(type=>{const option=document.createElement('option');option.value=type;option.textContent=type[0].toUpperCase()+type.slice(1);cueType.append(option)});cueType.value=cue.type;cueType.style.width='105px';
   const cueVolume=document.createElement('input');cueVolume.type='range';cueVolume.min='0';cueVolume.max='100';cueVolume.step='5';cueVolume.value=cue.volume??100;cueVolume.setAttribute('aria-label','Sound cue volume at frame '+cue.frame);cueVolume.style.width='90px';
@@ -1317,7 +1318,7 @@ function sfxRefresh(){
   const save=document.createElement('button');save.type='button';save.textContent='Save';save.setAttribute('aria-label','Save sound cue at frame '+cue.frame);save.onclick=()=>{const nextFrame=Number(cueFrame.value);if(!Number.isFinite(nextFrame)){cueFrame.value=cue.frame;return}cue.frame=Math.max(0,Math.min(120,Math.round(nextFrame)));cue.type=cueType.value;cue.volume=Number(cueVolume.value);sfxRefresh();pushHistory()};
   const duplicate=document.createElement('button');duplicate.type='button';duplicate.textContent='Duplicate';duplicate.setAttribute('aria-label','Duplicate sound cue at frame '+cue.frame);duplicate.onclick=()=>{sfxCues.push({id:Date.now()+Math.random(),frame:cue.frame,type:cue.type,volume:cue.volume??100});sfxRefresh();pushHistory()};
   const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Delete';remove.setAttribute('aria-label','Delete sound cue at frame '+cue.frame);remove.onclick=()=>{sfxCues=sfxCues.filter(x=>x.id!==cue.id);sfxRefresh();pushHistory()};
-  row.append(jump,snap,cueFrame,cueType,cueVolume,cueVolumeLabel,previewCue,save,duplicate,remove);list.append(row);
+  row.append(jump,snap,copyCue,cueFrame,cueType,cueVolume,cueVolumeLabel,previewCue,save,duplicate,remove);list.append(row);
  });
 }
 const projectStateBeforeSfx=projectState;
