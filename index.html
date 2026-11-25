@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v5.8 • Torso-Attached IK</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v6.0 • Full-Body Motion</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -28,7 +28,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="stage-area">
 <div class="stage-tools"><button id="center">Center selected</button><button id="fit">Fit view</button><button id="exportPng" class="primary">Export PNG</button><button id="exportVideo" class="primary">Export video</button><button id="exportEpisodeVideo" class="primary">Export full episode</button><span id="videoStatus" class="small">WebM video export</span><button id="undo">↶ Undo</button><button id="redo">↷ Redo</button><button id="saveProject">Save project</button><button id="loadProject">Open project</button><input id="projectFile" type="file" accept=".json,application/json" class="hidden"><button id="exportJson">Rig JSON</button><button id="importJson">Import Rig</button><input id="jsonFile" type="file" accept=".json" class="hidden"></div>
 <div class="canvas-wrap"><canvas id="stage" width="1280" height="720"></canvas></div>
-<div class="timeline"><div class="timeline-head"><strong>Animation timeline</strong><div class="row" style="flex:0 0 auto"><button id="capture" class="primary">● Capture key</button><button id="play">▶ Play</button><button id="deleteKey">Delete key</button><button id="clearKeys" class="danger">Clear keys</button></div></div><label>Frame <span id="frameLabel">0</span> / 120</label><input id="frame" type="range" min="0" max="120" value="0"><label>Interpolation</label><select id="easing"><option value="linear">Linear</option><option value="ease">Smooth ease-in/out</option><option value="easeOut">Ease out</option><option value="easeIn">Ease in</option><option value="hold">Hold previous pose</option></select><div class="frames" id="frames"></div><div class="small">Capture a pose at a frame, move to another frame, change the pose, and capture again. Playback interpolates between captured poses.</div><div class="timeline-head" style="margin-top:12px"><strong>Motion actions</strong><span class="small">Generate reusable keyframes</span></div><div class="row"><select id="motionPreset" style="flex:1"><option value="idle">Idle / breathing</option><option value="walk">Walk cycle</option><option value="run">Run cycle</option><option value="jump">Jump</option></select><button id="generateMotion" class="primary">Generate action</button></div><div class="small" id="motionStatus">Name layers clearly (Head, Torso, Left Arm, Right Leg) for best results. Generated poses replace keys at the generated frames.</div><label>Animation action name</label><input id="motionName" type="text" placeholder="e.g. Heroic idle"><div class="row"><button id="saveMotionAction">Save action</button><button id="exportMotionAction">Export action</button><button id="importMotionAction">Import action</button><input id="motionActionFile" type="file" accept=".json,application/json" class="hidden"></div><label>Saved action library</label><select id="motionLibrary"></select><div class="row"><button id="applyMotionAction" class="primary">Apply saved action</button><button id="deleteMotionAction" class="danger">Delete</button></div><div class="timeline-head" style="margin-top:12px"><strong>Character pose library</strong><span class="small">Save full-body positions</span></div><label>Pose name</label><input id="poseName" type="text" placeholder="e.g. Ready stance"><div class="row"><button id="capturePose" class="primary">Save current pose</button><button id="applyPose">Apply pose</button></div><label>Saved poses</label><select id="poseLibrary"></select><div class="row"><button id="exportPose">Export pose</button><button id="importPose">Import pose</button><button id="deletePose" class="danger">Delete</button><input id="poseFile" type="file" accept=".json,application/json" class="hidden"></div><div class="small" id="poseStatus">Poses save each part’s position, rotation, scale and opacity. Use the same rig and layer order to reuse them.</div></div>
+<div class="timeline"><div class="timeline-head"><strong>Animation timeline</strong><div class="row" style="flex:0 0 auto"><button id="capture" class="primary">● Capture key</button><button id="play">▶ Play</button><button id="deleteKey">Delete key</button><button id="clearKeys" class="danger">Clear keys</button></div></div><label>Frame <span id="frameLabel">0</span> / 120</label><input id="frame" type="range" min="0" max="120" value="0"><label>Interpolation</label><select id="easing"><option value="linear">Linear</option><option value="ease">Smooth ease-in/out</option><option value="easeOut">Ease out</option><option value="easeIn">Ease in</option><option value="hold">Hold previous pose</option></select><div class="frames" id="frames"></div><div class="small">Capture a pose at a frame, move to another frame, change the pose, and capture again. Playback interpolates between captured poses.</div><div class="timeline-head" style="margin-top:12px"><strong>Motion actions</strong><span class="small">Generate reusable keyframes</span></div><div class="row"><select id="motionPreset" style="flex:1"><option value="idle">Idle / breathing</option><option value="walk">Walk cycle</option><option value="run">Run cycle</option><option value="jump">Jump</option><option value="attack">Attack combo</option><option value="dodge">Dodge / evade</option><option value="crouch">Crouch</option><option value="celebrate">Celebrate</option></select><button id="generateMotion" class="primary">Generate action</button></div><div class="small" id="motionStatus">Generate idle, walk, run, jump, attack, dodge, crouch and celebration poses. Name parts clearly for best full-body results. Generated poses replace keys at the generated frames.</div><label>Animation action name</label><input id="motionName" type="text" placeholder="e.g. Heroic idle"><div class="row"><button id="saveMotionAction">Save action</button><button id="exportMotionAction">Export action</button><button id="importMotionAction">Import action</button><input id="motionActionFile" type="file" accept=".json,application/json" class="hidden"></div><label>Saved action library</label><select id="motionLibrary"></select><div class="row"><button id="applyMotionAction" class="primary">Apply saved action</button><button id="deleteMotionAction" class="danger">Delete</button></div><div class="timeline-head" style="margin-top:12px"><strong>Character pose library</strong><span class="small">Save full-body positions</span></div><label>Pose name</label><input id="poseName" type="text" placeholder="e.g. Ready stance"><div class="row"><button id="capturePose" class="primary">Save current pose</button><button id="applyPose">Apply pose</button></div><label>Saved poses</label><select id="poseLibrary"></select><div class="row"><button id="exportPose">Export pose</button><button id="importPose">Import pose</button><button id="deletePose" class="danger">Delete</button><input id="poseFile" type="file" accept=".json,application/json" class="hidden"></div><div class="small" id="poseStatus">Poses save each part’s position, rotation, scale and opacity. Use the same rig and layer order to reuse them.</div></div>
 <section class="timeline" id="audioPanel"><div class="timeline-head"><strong>Audio & dialogue · v4.7</strong><span class="small" id="audioStatus">No audio loaded</span></div><label>Import dialogue, voice or music</label><input id="audioFile" type="file" accept="audio/*"><div class="row" style="margin-top:8px"><button id="audioPlay" class="primary">▶ Play audio</button><button id="audioStop">■ Stop</button><button id="audioClear" class="danger">Remove audio</button></div><label>Frame rate</label><select id="audioFps"><option value="24">24 FPS · Anime standard</option><option value="25">25 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option></select><label>Audio start offset (seconds)</label><input id="audioOffset" type="number" min="0" step=".05" value="0"><div class="row"><button id="audioSync">Sync current frame to audio</button><button id="autoLip" class="primary">Enable auto lip-sync</button></div><div class="hint">Audio playback follows the timeline frame rate. Auto lip-sync uses the imported audio's volume to animate the mouth while audio plays. Clean voice recordings work best. Re-import audio after reopening a project.</div><audio id="dialogueAudio" preload="auto" style="width:100%;margin-top:10px"></audio></section>
 <section class="timeline" id="scenePanel"><div class="timeline-head"><strong>Scenes & transitions · v5.0</strong><span class="small" id="sceneStatus">1 scene</span></div><div class="row"><button id="sceneAdd" class="primary">＋ New scene</button><button id="sceneDuplicate">Duplicate</button><button id="sceneDelete" class="danger">Delete</button></div><label>Current scene</label><select id="sceneSelect"></select><div class="row"><label style="flex:1">Scene duration (seconds)<input id="sceneDuration" type="number" min="1" max="120" value="5"></label><label style="flex:1">Transition<select id="sceneTransition"><option value="cut">Cut</option><option value="fade">Fade</option><option value="wipe">Wipe</option></select></label></div><label>Transition duration (seconds)</label><input id="transitionDuration" type="number" min="0" max="5" step=".1" value=".5"><div class="row"><button id="sceneSave">Save current scene</button><button id="sceneExport" class="primary">Export episode plan</button><button id="sceneImport">Import plan</button><input id="sceneFile" type="file" accept=".json,application/json" hidden></div><div class="hint">Each scene stores its own artwork, rig, keyframes, facial acting and camera. Export an episode plan to keep all scenes together. Export an entire episode as WebM. Cut, fade and wipe transitions are composited during episode rendering.</div></section>
 </div>
@@ -46,7 +46,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <div class="row"><button data-pivot="shoulder">Shoulder</button><button data-pivot="elbow">Elbow</button><button data-pivot="wrist">Wrist</button></div>
 <div class="row"><button data-pivot="hip">Hip</button><button data-pivot="knee">Knee</button><button data-pivot="ankle">Ankle</button></div>
 <div class="hint">Attach limbs to a torso or upper limb to create a parent-child rig. Child parts inherit parent rotation and position. Set the pivot at the joint for natural rotation.</div></section>
-<section id="ikPanel"><h3>Inverse kinematics · v5.2</h3>
+<section id="ikPanel"><h3>Inverse kinematics · v5.9</h3>
 <div class="hint">Choose a three-part chain: upper limb (root), lower limb (middle), and hand/foot (end). The root must be an upper limb can be attached to a torso. The solver adjusts the two joint angles to reach a stage position.</div>
 <label>Root / upper limb</label><select id="ikRoot"></select>
 <label>Middle / lower limb</label><select id="ikMiddle"></select>
@@ -393,45 +393,88 @@ const refreshIKMenusOriginal=refreshParentMenu;
 refreshParentMenu=function(){refreshIKMenusOriginal();refreshIKMenus()};
 refreshIKMenus();
  
-/* v5.1: reusable procedural motion actions */
+/* v6.0: expanded full-body procedural animation library */
 const motionStatus=msg=>{const n=el('motionStatus');if(n)n.textContent=msg};
+const motionCurve=(t,points)=>{
+ if(t<=points[0][0])return points[0][1];
+ for(let i=1;i<points.length;i++){
+  if(t<=points[i][0]){
+   const [t0,v0]=points[i-1],[t1,v1]=points[i],u=(t-t0)/(t1-t0);
+   const smooth=u*u*(3-2*u);return v0+(v1-v0)*smooth;
+  }
+ }
+ return points[points.length-1][1];
+};
 el('generateMotion').onclick=()=>{
  if(!parts.length){motionStatus('Import character parts before generating an action');return}
  const preset=el('motionPreset').value;
  const base=parts.map(p=>({x:p.x,y:p.y,rot:p.rot,scale:p.scale,opacity:p.opacity}));
- const named=parts.map((p,i)=>({p,i,name:String(p.name||'').toLowerCase()}));
+ const named=parts.map((p,i)=>({p,i,name:String(p.name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ')}));
  const groups={
-  head:named.filter(x=>/head|face|hair/.test(x.name)),
-  torso:named.filter(x=>/torso|body|chest|spine/.test(x.name)),
+  head:named.filter(x=>/head|face|hair|neck/.test(x.name)),
+  torso:named.filter(x=>/torso|body|chest|spine|waist|pelvis/.test(x.name)),
   arms:named.filter(x=>/arm|hand|wrist|forearm|shoulder/.test(x.name)),
   legs:named.filter(x=>/leg|thigh|shin|calf|foot|knee|ankle/.test(x.name))
  };
+ const roots=named.filter(x=>(x.p.parent??-1)<0);
  const frames=[0,15,30,45,60,75,90,105,120];
- const cycles={idle:{arm:2,leg:1,bounce:2,head:1},walk:{arm:24,leg:30,bounce:5,head:2},run:{arm:38,leg:46,bounce:9,head:3},jump:{arm:35,leg:24,bounce:0,head:2}}[preset];
- const sideSign=x=>/left|_l$|^l_/.test(x.name)?-1:/right|_r$|^r_/.test(x.name)?1:(x.i%2===0?-1:1);
- frames.forEach((f,fi)=>{
-  const phase=(f/30)*Math.PI*2;
+ const side=x=>/left|(^| )l( |$)/.test(x.name)?-1:/right|(^| )r( |$)/.test(x.name)?1:(x.i%2===0?-1:1);
+ const amount=(x,upper,lower)=>/forearm|lower arm|shin|calf|hand|foot|wrist/.test(x.name)?lower:upper;
+ const wave=(t,phase=0)=>Math.sin(t*Math.PI*2+phase);
+ frames.forEach(f=>{
+  const t=f/120,phase=t*Math.PI*2,cycle=wave(t),bounce=Math.abs(Math.sin(phase));
   parts.forEach((p,i)=>{const b=base[i];p.x=b.x;p.y=b.y;p.rot=b.rot;p.scale=b.scale;p.opacity=b.opacity});
-  const wave=Math.sin(phase),bounce=Math.abs(Math.sin(phase));
-  groups.arms.forEach(x=>{const sign=sideSign(x);x.p.rot=base[x.i].rot+(preset==='jump'?-cycles.arm:cycles.arm*wave*sign)});
-  groups.legs.forEach(x=>{const sign=sideSign(x);x.p.rot=base[x.i].rot+(preset==='jump'?cycles.leg*sign:cycles.leg*wave*sign)});
-  groups.torso.forEach(x=>{x.p.y=base[x.i].y-(preset==='jump'?(fi<2?0:fi<5?36:0):cycles.bounce*bounce)});
-  groups.head.forEach(x=>{x.p.rot=base[x.i].rot+Math.sin(phase+.35)*cycles.head});
-  if(preset==='jump'){
-   const lift=fi<=2?fi*22:fi<=5?(5-fi)*22:0;
-   parts.forEach((p,i)=>{if(!groups.torso.some(x=>x.i===i)&&!groups.head.some(x=>x.i===i))p.y=base[i].y-lift});
+  if(preset==='idle'||preset==='walk'||preset==='run'){
+   const cfg={idle:{arm:2,leg:1,bob:2,head:1},walk:{arm:23,leg:29,bob:5,head:2},run:{arm:38,leg:45,bob:10,head:3}}[preset];
+   groups.arms.forEach(x=>{const swing=cfg.arm*cycle*side(x);x.p.rot=base[x.i].rot+swing*amount(x,1,.48)});
+   groups.legs.forEach(x=>{const swing=cfg.leg*cycle*side(x);x.p.rot=base[x.i].rot-swing*amount(x,1,.65)});
+   groups.torso.forEach(x=>{x.p.y=base[x.i].y-cfg.bob*bounce});
+   groups.head.forEach(x=>{x.p.rot=base[x.i].rot+wave(t,.35)*cfg.head});
+  }else if(preset==='jump'){
+   const lift=90*Math.sin(Math.PI*t);
+   roots.forEach(x=>{x.p.y=base[x.i].y-lift});
+   groups.arms.forEach(x=>{x.p.rot=base[x.i].rot-amount(x,38,18)*Math.sin(Math.PI*t)});
+   groups.legs.forEach(x=>{x.p.rot=base[x.i].rot+side(x)*amount(x,24,12)*Math.sin(Math.PI*t)});
+   groups.torso.forEach(x=>{x.p.rot=base[x.i].rot-4*Math.sin(Math.PI*t)});
+   groups.head.forEach(x=>{x.p.rot=base[x.i].rot+2*Math.sin(Math.PI*t)});
+  }else if(preset==='attack'){
+   const torso=motionCurve(t,[[0,0],[.125,-7],[.25,-15],[.375,8],[.5,5],[.75,0],[1,0]]);
+   const strike=motionCurve(t,[[0,0],[.125,-24],[.25,-68],[.375,22],[.5,10],[.75,0],[1,0]]);
+   groups.torso.forEach(x=>{x.p.rot=base[x.i].rot+torso});
+   groups.arms.forEach(x=>{const s=side(x),v=s>0?strike:motionCurve(t,[[0,0],[.125,18],[.25,30],[.5,18],[.75,0],[1,0]]);x.p.rot=base[x.i].rot+v*amount(x,1,.62)});
+   groups.legs.forEach(x=>{const s=side(x),v=motionCurve(t,[[0,0],[.125,s*8],[.25,s*15],[.375,-s*5],[.6,0],[1,0]]);x.p.rot=base[x.i].rot+v*amount(x,1,.7)});
+   roots.forEach(x=>{x.p.x=base[x.i].x+motionCurve(t,[[0,0],[.25,8],[.375,-5],[.7,0],[1,0]])});
+  }else if(preset==='dodge'){
+   const lean=motionCurve(t,[[0,0],[.15,-8],[.35,18],[.55,8],[.8,0],[1,0]]);
+   const shift=motionCurve(t,[[0,0],[.2,-8],[.4,34],[.6,18],[.85,0],[1,0]]);
+   roots.forEach(x=>{x.p.x=base[x.i].x+shift;x.p.y=base[x.i].y+motionCurve(t,[[0,0],[.25,22],[.45,38],[.7,8],[1,0]])});
+   groups.torso.forEach(x=>{x.p.rot=base[x.i].rot+lean});
+   groups.arms.forEach(x=>{x.p.rot=base[x.i].rot+side(x)*motionCurve(t,[[0,0],[.25,30],[.45,48],[.7,12],[1,0]])*amount(x,1,.6)});
+   groups.legs.forEach(x=>{x.p.rot=base[x.i].rot-side(x)*motionCurve(t,[[0,0],[.25,18],[.45,28],[.7,6],[1,0]])*amount(x,1,.7)});
+  }else if(preset==='crouch'){
+   const down=motionCurve(t,[[0,0],[.2,28],[.55,32],[.8,0],[1,0]]);
+   roots.forEach(x=>{x.p.y=base[x.i].y+down});
+   groups.legs.forEach(x=>{x.p.rot=base[x.i].rot+side(x)*motionCurve(t,[[0,0],[.25,30],[.6,32],[.85,0],[1,0]])*amount(x,1,.7)});
+   groups.arms.forEach(x=>{x.p.rot=base[x.i].rot-motionCurve(t,[[0,0],[.3,22],[.65,24],[.9,0],[1,0]])*amount(x,1,.6)});
+   groups.head.forEach(x=>{x.p.rot=base[x.i].rot+motionCurve(t,[[0,0],[.3,5],[.65,5],[.9,0],[1,0]])});
+  }else if(preset==='celebrate'){
+   const raise=Math.sin(Math.PI*t);
+   groups.arms.forEach(x=>{x.p.rot=base[x.i].rot- side(x)*amount(x,112,48)*raise});
+   groups.legs.forEach(x=>{x.p.rot=base[x.i].rot+side(x)*amount(x,12,6)*raise});
+   roots.forEach(x=>{x.p.y=base[x.i].y-18*Math.abs(Math.sin(Math.PI*t*2))});
+   groups.torso.forEach(x=>{x.p.rot=base[x.i].rot-3*raise});
+   groups.head.forEach(x=>{x.p.rot=base[x.i].rot+3*wave(t,.2)});
   }
-  if(!groups.arms.length&&!groups.legs.length&&!groups.torso.length&&!groups.head.length&&sel>=0){
-   const amp=preset==='idle'?3:preset==='walk'?12:preset==='run'?20:28;
-   parts[sel].y=base[sel].y-(preset==='jump'?(fi<=4?fi*12:(8-fi)*12):Math.abs(Math.sin(phase))*amp);
-   parts[sel].rot=base[sel].rot+Math.sin(phase)*amp*.35;
+  if(!groups.arms.length&&!groups.legs.length&&!groups.torso.length&&!groups.head.length){
+   const amp={idle:3,walk:12,run:20,jump:28,attack:24,dodge:22,crouch:16,celebrate:25}[preset]||10;
+   if(sel>=0){parts[sel].y=base[sel].y-(preset==='jump'?90*Math.sin(Math.PI*t):Math.abs(Math.sin(phase))*amp);parts[sel].rot=base[sel].rot+Math.sin(phase)*amp*.35}
   }
   keys[f]=snap();
  });
- parts.forEach((p,i)=>{p.x=base[i].x;p.y=base[i].y;p.rot=base[i].rot;p.scale=base[i].scale;p.opacity=base[i].opacity});
+ parts.forEach((p,i)=>{const b=base[i];p.x=b.x;p.y=b.y;p.rot=b.rot;p.scale=b.scale;p.opacity=b.opacity});
  frame=0;el('frame').value=0;el('frameLabel').textContent=0;
  applyKey(0);renderFrames();draw();pushHistory();
- motionStatus(preset.toUpperCase()+' action generated · 9 key poses · review and adjust the result');
+ motionStatus(preset.toUpperCase()+' generated · 9 full-body key poses · review the timeline and refine the movement');
 };
  
 /* v5.5: click-to-place joint pivot editor */
