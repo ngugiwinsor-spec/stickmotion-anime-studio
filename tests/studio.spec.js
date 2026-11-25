@@ -1328,3 +1328,61 @@ test('saved project files preserve body, facial, and camera animation keys', asy
   expect(restored).toEqual({ frame: 12, bodyKey: 240, faceGaze: 0.4, cameraZoom: 1.2 });
   expect(errors).toEqual([]);
 });
+
+
+test('single-scene video export downloads a decodable WebM and restores the editor state', async ({ page }) => {
+  test.setTimeout(45000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.locator('#sceneDuration').fill('1');
+  await page.locator('#sceneDuration').dispatchEvent('change');
+  await page.locator('#frame').fill('12');
+  await page.locator('#frame').dispatchEvent('input');
+
+  const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+  await page.locator('#exportVideo').click();
+  await expect(page.locator('#videoStatus')).toContainText('Video exported', { timeout: 30000 });
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('stickmotion-scene.webm');
+  expect(await download.failure()).toBeNull();
+
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const bytes = Buffer.concat(chunks);
+  expect(bytes.length).toBeGreaterThan(1000);
+  const decoded = await page.evaluate(async base64 => {
+    const binary = atob(base64);
+    const data = Uint8Array.from(binary, char => char.charCodeAt(0));
+    const video = document.createElement('video');
+    video.muted = true;
+    video.src = URL.createObjectURL(new Blob([data], { type: 'video/webm' }));
+    await new Promise((resolve, reject) => {
+      video.addEventListener('loadedmetadata', resolve, { once: true });
+      video.addEventListener('error', () => reject(new Error('Exported WebM could not be decoded')), { once: true });
+    });
+    const duration = video.duration;
+    video.currentTime = Math.min(0.25, duration / 2);
+    await new Promise((resolve, reject) => {
+      video.addEventListener('seeked', resolve, { once: true });
+      video.addEventListener('error', () => reject(new Error('Exported WebM could not seek')), { once: true });
+    });
+    const result = { width: video.videoWidth, height: video.videoHeight, duration };
+    URL.revokeObjectURL(video.src);
+    return result;
+  }, bytes.toString('base64'));
+
+  expect(decoded.width).toBe(1280);
+  expect(decoded.height).toBe(720);
+  expect(decoded.duration).toBeGreaterThan(0.5);
+  const editor = await page.evaluate(() => ({
+    frame,
+    frameInput: Number(document.querySelector('#frame').value),
+    audioPaused: document.querySelector('#dialogueAudio').paused,
+    exporting: window.__stickMotionExporting
+  }));
+  expect(editor).toEqual({ frame: 12, frameInput: 12, audioPaused: true, exporting: false });
+  expect(errors).toEqual([]);
+});
