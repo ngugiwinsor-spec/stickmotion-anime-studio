@@ -1273,7 +1273,8 @@ window.__stickMotionFaceKeys=faceKeys;window.__stickMotionVisemeProfiles=visemeP
 /* v7.7: synthesized sound-effect cues aligned to timeline frames */
 let sfxCues=[];
 let sfxContext=null,sfxDestination=null,sfxLastFrame=-1;
-function sfxInit(){if(sfxContext)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;sfxContext=new AC();sfxDestination=sfxContext.createMediaStreamDestination()}
+function sfxInit(){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;if(!sfxContext)sfxContext=new AC();const tracks=sfxDestination?.stream?.getAudioTracks?.()||[];if(!sfxDestination||!tracks.some(t=>t.readyState==='live'))sfxDestination=sfxContext.createMediaStreamDestination()}
+window.__stickMotionSfxInit=()=>sfxInit();
 function sfxTone(type,when=sfxContext?.currentTime||0){
  if(!sfxContext)return;const c=sfxContext,master=c.createGain();master.gain.setValueAtTime(.0001,when);master.gain.exponentialRampToValueAtTime(.24,when+.012);master.gain.exponentialRampToValueAtTime(.0001,when+(type==='whoosh'?.42:type==='magic'?.65:.22));master.connect(sfxDestination);
  const osc=c.createOscillator();osc.connect(master);osc.type=type==='whoosh'?'sawtooth':type==='magic'?'sine':type==='step'?'triangle':'square';
