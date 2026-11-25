@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v6.8 • Export Quality</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v6.9 • Motion Trails</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -69,7 +69,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Camera Y</label><input id="camY" type="range" min="-540" max="540" value="0">
 <label>Zoom</label><input id="camZoom" type="range" min=".25" max="3" step=".01" value="1">
 <label>Camera rotation</label><input id="camRot" type="range" min="-180" max="180" value="0">
-<div class="row"><button id="cameraCenter">Reset camera</button><button id="cameraCapture" class="primary">Capture camera key</button></div><h3 style="margin-top:14px">Cinematic effects · v6.4</h3><label><input id="cinematicShake" type="checkbox" checked style="width:auto"> Enable camera shake</label><label>Shake intensity <span id="shakeLabel">8</span></label><input id="shakeIntensity" type="range" min="0" max="30" value="8"><label><input id="impactFlash" type="checkbox" checked style="width:auto"> Impact flash</label><h3 style="margin-top:14px">Camera presets · v6.5</h3><label>Shot framing</label><select id="cameraPreset"><option value="custom">Custom framing</option><option value="wide">Wide establishing shot</option><option value="hero">Hero shot</option><option value="close">Close-up</option><option value="dutch">Dutch angle</option><option value="low">Low-angle dramatic</option></select><button id="applyCameraPreset" class="primary" style="width:100%;margin-top:6px">Apply camera preset</button><div class="hint" id="cameraPresetStatus">Choose a shot and apply it. Capture a camera key to animate between shots.</div><h3 style="margin-top:14px">Lighting & atmosphere · v6.5</h3><label>Atmosphere</label><select id="atmospherePreset"><option value="neutral">Neutral</option><option value="sunset">Warm sunset</option><option value="moon">Cool moonlight</option><option value="ember">Ember / battle</option><option value="teal">Teal cinematic</option></select><label>Atmosphere strength <span id="atmosphereLabel">18%</span></label><input id="atmosphereStrength" type="range" min="0" max="60" value="18"><label>Vignette strength <span id="vignetteLabel">25%</span></label><input id="vignetteStrength" type="range" min="0" max="80" value="25"><h3 style="margin-top:14px">Anime effects · v6.6</h3><label>Effect type</label><select id="animeEffect"><option value="none">None</option><option value="speed">Anime speed lines</option><option value="sparks">Impact sparks</option><option value="aura">Energy aura</option><option value="embers">Floating embers</option></select><label>Effect intensity <span id="effectIntensityLabel">50%</span></label><input id="effectIntensity" type="range" min="0" max="100" value="50"><div class="hint">Effects follow the timeline frame. Select a character layer to anchor sparks and energy around its rig position.</div><h3 style="margin-top:14px">Anime finishing · v6.7</h3><label>Character glow</label><div class="row"><input id="characterGlow" type="checkbox"><select id="glowColor"><option value="#62d9ff">Cyan</option><option value="#b58cff">Violet</option><option value="#ffd36b">Gold</option><option value="#ff6688">Crimson</option></select></div><label>Glow strength <span id="glowStrengthLabel">18</span></label><input id="glowStrength" type="range" min="0" max="40" value="18"><label>Eye glow <span id="eyeGlowLabel">0%</span></label><input id="eyeGlow" type="range" min="0" max="100" value="0"><div class="hint">Character glow is drawn behind the selected artwork. Eye glow follows the facial overlay on the selected head layer.</div><div class="hint">Lighting overlays are preview effects and do not alter your source character artwork.</div><div class="hint" id="cinematicStatus">Shake follows the timeline frame. Impact flashes are added to generated attack, dodge and jump actions.</div>
+<div class="row"><button id="cameraCenter">Reset camera</button><button id="cameraCapture" class="primary">Capture camera key</button></div><h3 style="margin-top:14px">Cinematic effects · v6.4</h3><label><input id="cinematicShake" type="checkbox" checked style="width:auto"> Enable camera shake</label><label>Shake intensity <span id="shakeLabel">8</span></label><input id="shakeIntensity" type="range" min="0" max="30" value="8"><label><input id="impactFlash" type="checkbox" checked style="width:auto"> Impact flash</label><h3 style="margin-top:14px">Camera presets · v6.5</h3><label>Shot framing</label><select id="cameraPreset"><option value="custom">Custom framing</option><option value="wide">Wide establishing shot</option><option value="hero">Hero shot</option><option value="close">Close-up</option><option value="dutch">Dutch angle</option><option value="low">Low-angle dramatic</option></select><button id="applyCameraPreset" class="primary" style="width:100%;margin-top:6px">Apply camera preset</button><div class="hint" id="cameraPresetStatus">Choose a shot and apply it. Capture a camera key to animate between shots.</div><h3 style="margin-top:14px">Lighting & atmosphere · v6.5</h3><label>Atmosphere</label><select id="atmospherePreset"><option value="neutral">Neutral</option><option value="sunset">Warm sunset</option><option value="moon">Cool moonlight</option><option value="ember">Ember / battle</option><option value="teal">Teal cinematic</option></select><label>Atmosphere strength <span id="atmosphereLabel">18%</span></label><input id="atmosphereStrength" type="range" min="0" max="60" value="18"><label>Vignette strength <span id="vignetteLabel">25%</span></label><input id="vignetteStrength" type="range" min="0" max="80" value="25"><h3 style="margin-top:14px">Anime effects · v6.6</h3><label>Effect type</label><select id="animeEffect"><option value="none">None</option><option value="speed">Anime speed lines</option><option value="sparks">Impact sparks</option><option value="aura">Energy aura</option><option value="embers">Floating embers</option></select><label>Effect intensity <span id="effectIntensityLabel">50%</span></label><input id="effectIntensity" type="range" min="0" max="100" value="50"><div class="hint">Effects follow the timeline frame. Select a character layer to anchor sparks and energy around its rig position.</div><h3 style="margin-top:14px">Anime motion trails · v6.9</h3><label><input id="motionTrails" type="checkbox" style="width:auto"> Enable afterimage trails</label><label>Trail count</label><select id="trailCount"><option value="1">1 ghost</option><option value="2">2 ghosts</option><option value="3" selected>3 ghosts</option><option value="4">4 ghosts</option></select><label>Trail strength <span id="trailStrengthLabel">55%</span></label><input id="trailStrength" type="range" min="10" max="100" value="55"><div class="hint">Afterimages follow the selected character part and animation direction. They are timeline-synced preview effects and are included in video exports.</div><h3 style="margin-top:14px">Anime finishing · v6.7</h3><label>Character glow</label><div class="row"><input id="characterGlow" type="checkbox"><select id="glowColor"><option value="#62d9ff">Cyan</option><option value="#b58cff">Violet</option><option value="#ffd36b">Gold</option><option value="#ff6688">Crimson</option></select></div><label>Glow strength <span id="glowStrengthLabel">18</span></label><input id="glowStrength" type="range" min="0" max="40" value="18"><label>Eye glow <span id="eyeGlowLabel">0%</span></label><input id="eyeGlow" type="range" min="0" max="100" value="0"><div class="hint">Character glow is drawn behind the selected artwork. Eye glow follows the facial overlay on the selected head layer.</div><div class="hint">Lighting overlays are preview effects and do not alter your source character artwork.</div><div class="hint" id="cinematicStatus">Shake follows the timeline frame. Impact flashes are added to generated attack, dodge and jump actions.</div>
 <div class="hint">Animate camera position, zoom and rotation using the same frame timeline. Camera moves affect the entire scene and are included in project JSON.</div></section></aside></main>
 <script>
 const c=document.getElementById('stage'),ctx=c.getContext('2d');let parts=[],sel=-1,transparent=false,keys={},frame=0,playing=false,playTimer=null;
@@ -993,4 +993,43 @@ draw=function(){
 el('glowStrength').oninput=()=>{el('glowStrengthLabel').textContent=el('glowStrength').value;draw()};
 el('characterGlow').onchange=draw;el('glowColor').onchange=draw;
 el('eyeGlow').oninput=()=>{el('eyeGlowLabel').textContent=el('eyeGlow').value+'%';draw()};
+
+/* v6.9: timeline-synced anime afterimage trails */
+el('trailStrength').oninput=()=>{el('trailStrengthLabel').textContent=el('trailStrength').value+'%';draw()};
+el('motionTrails').onchange=draw;
+el('trailCount').onchange=draw;
+const drawBeforeMotionTrails=draw;
+draw=function(){
+ drawBeforeMotionTrails();
+ if(!el('motionTrails').checked||sel<0||!parts[sel]?.img||!effectivelyVisible(sel))return;
+ const p=parts[sel],w=worldTransform(sel),strength=(Number(el('trailStrength').value)||0)/100;
+ if(strength<=0)return;
+ let dx=1,dy=.25;
+ const frames=Object.keys(keys).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+ const before=frames.filter(f=>f<frame).pop(),after=frames.find(f=>f>frame);
+ if(before!==undefined&&after!==undefined&&keys[before]?.[sel]&&keys[after]?.[sel]){
+  dx=keys[after][sel].x-keys[before][sel].x;
+  dy=keys[after][sel].y-keys[before][sel].y;
+ }
+ const length=Math.hypot(dx,dy)||1;dx/=length;dy/=length;
+ const count=Math.max(1,Math.min(4,Number(el('trailCount').value)||3));
+ ctx.save();
+ ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);
+ ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);
+ ctx.globalCompositeOperation='screen';
+ for(let n=count;n>=1;n--){
+  const distance=12+n*13;
+  ctx.save();ctx.translate(w.x-dx*distance,w.y-dy*distance);
+  ctx.rotate(w.r*Math.PI/180);ctx.scale(w.sc,w.sc);
+  ctx.globalAlpha=strength*(.24/(n*.72));
+  ctx.shadowColor=el('glowColor').value;ctx.shadowBlur=8+strength*12;
+  ctx.drawImage(p.img,-p.px,-p.py);ctx.restore();
+ }
+ ctx.restore();
+ /* Restore the selected artwork above its echoes so the character stays crisp. */
+ ctx.save();ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);
+ ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);
+ ctx.translate(w.x,w.y);ctx.rotate(w.r*Math.PI/180);ctx.scale(w.sc,w.sc);
+ ctx.globalAlpha=worldOpacity(sel);ctx.drawImage(p.img,-p.px,-p.py);ctx.restore();
+};
 </script></body></html>
