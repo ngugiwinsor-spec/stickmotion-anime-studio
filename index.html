@@ -1008,6 +1008,10 @@ el('exportEpisodeVideo').onclick=async()=>{
    await renderSceneAt(sc,count-1);
    prevFrame=await createImageBitmap(c);
   }
+  // Allow MediaRecorder to flush the last canvas frame and data chunk.
+  await delay(500);
+  if(recorder.state==='recording'&&typeof recorder.requestData==='function')recorder.requestData();
+  await delay(250);
   recorder.stop();await finished;
   const blob=new Blob(chunks,{type:mime});
   if(!blob.size)throw new Error('Empty episode video');
