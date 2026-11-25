@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.26');
+  await expect(page.locator('.badge')).toContainText('v7.27');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -1249,6 +1249,38 @@ test('timeline playback advances interpolated poses and pauses cleanly', async (
   expect(errors).toEqual([]);
 });
 
+
+test('timeline playback follows the selected frame rate', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+
+  await page.locator('#audioFps').selectOption('24');
+  await page.locator('#play').click();
+  await page.waitForTimeout(700);
+  const framesAt24Fps = await page.evaluate(() => frame);
+  await page.locator('#play').click();
+
+  await page.evaluate(() => {
+    frame = 0;
+    document.querySelector('#frame').value = '0';
+    document.querySelector('#frameLabel').textContent = '0';
+    applyKey(0);
+    renderFrames();
+    draw();
+  });
+  await page.locator('#audioFps').selectOption('60');
+  await page.locator('#play').click();
+  await page.waitForTimeout(700);
+  const framesAt60Fps = await page.evaluate(() => frame);
+  await page.locator('#play').click();
+
+  expect(framesAt24Fps).toBeGreaterThanOrEqual(10);
+  expect(framesAt24Fps).toBeLessThanOrEqual(21);
+  expect(framesAt60Fps).toBeGreaterThan(framesAt24Fps * 1.7);
+  expect(framesAt60Fps).toBeLessThan(framesAt24Fps * 3.2);
+  expect(errors).toEqual([]);
+});
 
 test('saved project files preserve body, facial, and camera animation keys', async ({ page }) => {
   const errors = [];
