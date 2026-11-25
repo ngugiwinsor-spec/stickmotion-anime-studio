@@ -273,6 +273,20 @@ test('sound effects cues are editable, persistent, and previewable', async ({ pa
 
 
 
+
+test('sound effects volume control updates preview and export mix level', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await expect(page.locator('#sfxVolume')).toHaveValue('70');
+  await page.locator('#sfxVolume').fill('35');
+  await expect(page.locator('#sfxVolumeLabel')).toHaveText('35%');
+  expect(await page.evaluate(() => window.__stickMotionSfxVolume)).toBe(35);
+  await page.locator('#sfxVolume').fill('0');
+  expect(await page.evaluate(() => window.__stickMotionSfxVolume)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 test('sound effects audio stream is recreated after export tracks stop', async ({ page }) => {
   await page.goto('/');
   const recovered = await page.evaluate(() => window.__stickMotionTestSfxStreamRecovery());
