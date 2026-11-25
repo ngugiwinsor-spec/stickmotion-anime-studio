@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v6.5 • Cinematic Lighting</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v6.6 • Anime FX</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -69,7 +69,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Camera Y</label><input id="camY" type="range" min="-540" max="540" value="0">
 <label>Zoom</label><input id="camZoom" type="range" min=".25" max="3" step=".01" value="1">
 <label>Camera rotation</label><input id="camRot" type="range" min="-180" max="180" value="0">
-<div class="row"><button id="cameraCenter">Reset camera</button><button id="cameraCapture" class="primary">Capture camera key</button></div><h3 style="margin-top:14px">Cinematic effects · v6.4</h3><label><input id="cinematicShake" type="checkbox" checked style="width:auto"> Enable camera shake</label><label>Shake intensity <span id="shakeLabel">8</span></label><input id="shakeIntensity" type="range" min="0" max="30" value="8"><label><input id="impactFlash" type="checkbox" checked style="width:auto"> Impact flash</label><h3 style="margin-top:14px">Camera presets · v6.5</h3><label>Shot framing</label><select id="cameraPreset"><option value="custom">Custom framing</option><option value="wide">Wide establishing shot</option><option value="hero">Hero shot</option><option value="close">Close-up</option><option value="dutch">Dutch angle</option><option value="low">Low-angle dramatic</option></select><button id="applyCameraPreset" class="primary" style="width:100%;margin-top:6px">Apply camera preset</button><div class="hint" id="cameraPresetStatus">Choose a shot and apply it. Capture a camera key to animate between shots.</div><h3 style="margin-top:14px">Lighting & atmosphere · v6.5</h3><label>Atmosphere</label><select id="atmospherePreset"><option value="neutral">Neutral</option><option value="sunset">Warm sunset</option><option value="moon">Cool moonlight</option><option value="ember">Ember / battle</option><option value="teal">Teal cinematic</option></select><label>Atmosphere strength <span id="atmosphereLabel">18%</span></label><input id="atmosphereStrength" type="range" min="0" max="60" value="18"><label>Vignette strength <span id="vignetteLabel">25%</span></label><input id="vignetteStrength" type="range" min="0" max="80" value="25"><div class="hint">Lighting overlays are preview effects and do not alter your source character artwork.</div><div class="hint" id="cinematicStatus">Shake follows the timeline frame. Impact flashes are added to generated attack, dodge and jump actions.</div>
+<div class="row"><button id="cameraCenter">Reset camera</button><button id="cameraCapture" class="primary">Capture camera key</button></div><h3 style="margin-top:14px">Cinematic effects · v6.4</h3><label><input id="cinematicShake" type="checkbox" checked style="width:auto"> Enable camera shake</label><label>Shake intensity <span id="shakeLabel">8</span></label><input id="shakeIntensity" type="range" min="0" max="30" value="8"><label><input id="impactFlash" type="checkbox" checked style="width:auto"> Impact flash</label><h3 style="margin-top:14px">Camera presets · v6.5</h3><label>Shot framing</label><select id="cameraPreset"><option value="custom">Custom framing</option><option value="wide">Wide establishing shot</option><option value="hero">Hero shot</option><option value="close">Close-up</option><option value="dutch">Dutch angle</option><option value="low">Low-angle dramatic</option></select><button id="applyCameraPreset" class="primary" style="width:100%;margin-top:6px">Apply camera preset</button><div class="hint" id="cameraPresetStatus">Choose a shot and apply it. Capture a camera key to animate between shots.</div><h3 style="margin-top:14px">Lighting & atmosphere · v6.5</h3><label>Atmosphere</label><select id="atmospherePreset"><option value="neutral">Neutral</option><option value="sunset">Warm sunset</option><option value="moon">Cool moonlight</option><option value="ember">Ember / battle</option><option value="teal">Teal cinematic</option></select><label>Atmosphere strength <span id="atmosphereLabel">18%</span></label><input id="atmosphereStrength" type="range" min="0" max="60" value="18"><label>Vignette strength <span id="vignetteLabel">25%</span></label><input id="vignetteStrength" type="range" min="0" max="80" value="25"><h3 style="margin-top:14px">Anime effects · v6.6</h3><label>Effect type</label><select id="animeEffect"><option value="none">None</option><option value="speed">Anime speed lines</option><option value="sparks">Impact sparks</option><option value="aura">Energy aura</option><option value="embers">Floating embers</option></select><label>Effect intensity <span id="effectIntensityLabel">50%</span></label><input id="effectIntensity" type="range" min="0" max="100" value="50"><div class="hint">Effects follow the timeline frame. Select a character layer to anchor sparks and energy around its rig position.</div><div class="hint">Lighting overlays are preview effects and do not alter your source character artwork.</div><div class="hint" id="cinematicStatus">Shake follows the timeline frame. Impact flashes are added to generated attack, dodge and jump actions.</div>
 <div class="hint">Animate camera position, zoom and rotation using the same frame timeline. Camera moves affect the entire scene and are included in project JSON.</div></section></aside></main>
 <script>
 const c=document.getElementById('stage'),ctx=c.getContext('2d');let parts=[],sel=-1,transparent=false,keys={},frame=0,playing=false,playTimer=null;
@@ -937,5 +937,53 @@ draw=function(){
   grad.addColorStop(0,'rgba(0,0,0,0)');grad.addColorStop(1,'rgba(0,0,0,'+(vignette*.82)+')');
   ctx.fillStyle=grad;ctx.fillRect(0,0,c.width,c.height);ctx.restore();
  }
+};
+
+/* v6.6: deterministic timeline-synced anime FX */
+el('effectIntensity').oninput=()=>{el('effectIntensityLabel').textContent=el('effectIntensity').value+'%';draw()};
+el('animeEffect').onchange=draw;
+const drawBeforeAnimeFX=draw;
+draw=function(){
+ drawBeforeAnimeFX();
+ const type=el('animeEffect').value,power=(Number(el('effectIntensity').value)||0)/100;
+ if(type==='none'||power<=0)return;
+ const target=sel>=0&&parts[sel]?.img?worldTransform(sel):{x:0,y:0};
+ const angle=camera.rot*Math.PI/180,z=camera.zoom||1;
+ const tx=c.width/2+(target.x+camera.x)*Math.cos(angle)*z-(target.y+camera.y)*Math.sin(angle)*z;
+ const ty=c.height/2+(target.x+camera.x)*Math.sin(angle)*z+(target.y+camera.y)*Math.cos(angle)*z;
+ const phase=frame*.19,amount=power;
+ ctx.save();ctx.globalCompositeOperation='screen';ctx.lineCap='round';
+ if(type==='speed'){
+  ctx.strokeStyle='rgba(210,235,255,'+(.12+.38*amount)+')';ctx.lineWidth=1+2*amount;
+  const count=Math.round(9+23*amount);
+  for(let i=0;i<count;i++){
+   const y=((i*83+frame*19)%c.height),x=((i*137+frame*31)%c.width);
+   ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+35+90*amount,y-5-(i%4)*3);ctx.stroke();
+  }
+ }else if(type==='sparks){
+  const count=Math.round(8+24*amount);
+  for(let i=0;i<count;i++){
+   const a=i*2.399+phase,r=18+((i*29+frame*7)%75),x=tx+Math.cos(a)*r,y=ty+Math.sin(a)*r;
+   const len=3+((i*7)%9)*amount;
+   ctx.strokeStyle='rgba(255,'+(125+(i*13)%120)+',55,'+(.35+.55*amount)+')';ctx.lineWidth=1+amount*2;
+   ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-Math.cos(a)*len,y-Math.sin(a)*len);ctx.stroke();
+  }
+ }else if(type==='aura'){
+  const radius=34+10*Math.sin(phase*2),rx=radius*(1+amount*1.1),ry=radius*1.55;
+  ctx.strokeStyle='rgba(90,190,255,'+(.2+.5*amount)+')';ctx.lineWidth=3+5*amount;
+  ctx.shadowBlur=12+24*amount;ctx.shadowColor='#42bfff';
+  for(let ring=0;ring<3;ring++){ctx.beginPath();ctx.ellipse(tx,ty,rx+ring*8,ry+ring*8,Math.sin(phase+ring)*.12,0,Math.PI*2);ctx.stroke()}
+  ctx.shadowBlur=0;
+ }else if(type==='embers'){
+  const count=Math.round(12+28*amount);
+  for(let i=0;i<count;i++){
+   const x=(i*97+Math.sin(i*4+frame*.035)*28)%c.width;
+   const y=(c.height-((i*61+frame*2.1)%(c.height+40)));
+   const radius=1+(i%3)*.65;
+   ctx.fillStyle='rgba(255,'+(85+(i*17)%100)+',35,'+(.25+.55*amount)+')';
+   ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
+  }
+ }
+ ctx.restore();
 };
 </script></body></html>
