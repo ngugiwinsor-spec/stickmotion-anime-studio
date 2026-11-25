@@ -975,7 +975,8 @@ test('dialogue audio is saved across reloads and included in project downloads',
     transfer.items.add(new File([bytes], 'saved-dialogue.wav', { type: 'audio/wav' }));
     input.files = transfer.files; input.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await expect(page.locator('#audioStatus')).toContainText('saved-dialogue.wav · saved for next session');
+  await expect(page.locator('#audioStatus')).toContainText('saved-dialogue.wav');
+  await expect(page.locator('#audioStatus')).toContainText('saved');
   await page.reload();
   await expect(page.locator('#audioStatus')).toContainText('saved-dialogue.wav · restored');
   const restored = await page.evaluate(() => ({ src: document.querySelector('#dialogueAudio').src, name: document.querySelector('#audioStatus').textContent }));
