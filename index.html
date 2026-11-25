@@ -1361,4 +1361,11 @@ sfxRefresh=function(){
 };
 
 
+/* Restore extensions added after the original project bootstrap (e.g. sound cues). */
+try{
+ const savedAfterExtensions=localStorage.getItem(PROJECT_KEY);
+ if(savedAfterExtensions)loadProjectState(JSON.parse(savedAfterExtensions));
+}catch(err){console.warn('Could not restore extended project data',err)}
+
+
 </script></body></html>
