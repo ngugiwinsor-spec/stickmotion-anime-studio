@@ -1179,3 +1179,51 @@ test('timeline playback advances interpolated poses and pauses cleanly', async (
   await expect(page.locator('#play')).toContainText('Play');
   expect(errors).toEqual([]);
 });
+
+
+test('saved project files preserve body, facial, and camera animation keys', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.waitForFunction(() => parts.length === 10);
+  await page.evaluate(() => {
+    const start = snap(), end = snap();
+    start[0].x = 0;
+    end[0].x = 240;
+    keys = { 0: start, 30: end };
+    frame = 12;
+    faceKeys[12] = { ...face, gx: 0.4, viseme: 'A' };
+    cameraKeys[12] = { x: 15, y: -5, zoom: 1.2, rot: 8 };
+    draw();
+  });
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#saveProject').click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  let json = '';
+  for await (const chunk of stream) json += chunk.toString('utf8');
+  const project = JSON.parse(json);
+  expect(Object.keys(project.keyframes)).toEqual(['0', '30']);
+  expect(project.keyframes['30'][0].x).toBe(240);
+  expect(project.faceKeys['12'].gx).toBe(0.4);
+  expect(project.cameraKeys['12'].zoom).toBe(1.2);
+
+  await page.locator('#reset').click();
+  await page.waitForFunction(() => parts.length === 0 && Object.keys(keys).length === 0);
+  await page.locator('#projectFile').setInputFiles({
+    name: 'stickmotion-animation-project.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(json)
+  });
+  await page.waitForFunction(() => parts.length === 10 && keys['30']?.[0]?.x === 240 && parts[0].img?.complete && parts[0].img.naturalWidth > 0);
+  const restored = await page.evaluate(() => ({
+    frame,
+    bodyKey: keys[30][0].x,
+    faceGaze: faceKeys[12].gx,
+    cameraZoom: cameraKeys[12].zoom
+  }));
+  expect(restored).toEqual({ frame: 12, bodyKey: 240, faceGaze: 0.4, cameraZoom: 1.2 });
+  expect(errors).toEqual([]);
+});
