@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.5 • Camera Follow</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.6 • Viseme Dialogue</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -68,7 +68,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Mouth open</label><input id="mouthOpen" type="range" min="0" max="1" step=".05" value=".15">
 <label>Eyebrow angle</label><input id="browAngle" type="range" min="-1" max="1" step=".05" value="0">
 <div class="row"><button id="faceCapture" class="primary">Capture face key</button><button id="faceReset">Reset face</button><button id="faceClearKeys">Clear face keys</button></div>
-<div class="hint">Select the head artwork layer to attach a live facial overlay. Gaze, blinking, expression and mouth movement can be captured on the timeline. The overlay is editable and does not alter your source artwork. Procedural actions can also generate matching expressions and facial keyframes.</div></section><section id="cameraPanel"><h3>Camera & cinematics · v4.5</h3>
+<div class="timeline-head" style="margin-top:12px"><strong>Viseme dialogue acting · v7.6</strong><span class="small">Mouth-shape keys on the timeline</span></div><label>Dialogue line</label><input id="visemeDialogue" type="text" placeholder="Type the character dialogue..."><label>Mouth shape</label><select id="visemeShape"><option value="rest">Rest / MBP closed</option><option value="A">A — open vowel</option><option value="E">E — wide vowel</option><option value="O">O — rounded vowel</option><option value="FV">F / V — teeth on lip</option><option value="L">L / TH — tongue shape</option><option value="wide">Wide / shout</option><option value="smile">Smile while speaking</option></select><div class="row"><button id="addVisemeKey" class="primary">Add mouth key at current frame</button><button id="paceDialogue">Approximate text timing</button></div><div class="row"><button id="clearVisemeKeys" class="danger">Clear dialogue keys</button><span class="small" id="visemeStatus">Choose a mouth shape and add it at the playhead.</span></div><div class="hint">Select the head artwork layer to attach a live facial overlay. Gaze, blinking, expression and mouth movement can be captured on the timeline. The overlay is editable and does not alter your source artwork. Procedural actions can also generate matching expressions and facial keyframes.</div></section><section id="cameraPanel"><h3>Camera & cinematics · v4.5</h3>
 <label>Camera X</label><input id="camX" type="range" min="-960" max="960" value="0">
 <label>Camera Y</label><input id="camY" type="range" min="-540" max="540" value="0">
 <label>Zoom</label><input id="camZoom" type="range" min=".25" max="3" step=".01" value="1">
@@ -186,8 +186,15 @@ const eyeY=ih*.39,eyeDX=iw*.19,eyeR=Math.max(3,iw*.055),gX=face.gx*eyeR*.65,gY=f
 ctx.lineCap='round';ctx.lineJoin='round';
 [-1,1].forEach(side=>{let ex=iw/2+side*eyeDX;ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(ex,eyeY,eyeR*1.2,Math.max(1,eyeR*(1-face.blink*.94)),0,0,Math.PI*2);ctx.fill();if(face.blink<.88){ctx.fillStyle='#26334d';ctx.beginPath();ctx.arc(ex+gX,eyeY+gY,eyeR*.48,0,Math.PI*2);ctx.fill()}ctx.strokeStyle='#26334d';ctx.lineWidth=Math.max(2,iw*.012);ctx.beginPath();ctx.moveTo(ex-eyeR*1.25,eyeY-eyeR*.85+face.brow*eyeR*.55);ctx.lineTo(ex+eyeR*1.25,eyeY-eyeR*.85-face.brow*eyeR*.55);ctx.stroke()});
 const eyePower=(Number(el('eyeGlow').value)||0)/100;if(eyePower>0&&face.blink<.88){ctx.save();ctx.globalCompositeOperation='screen';[-1,1].forEach(side=>{const ex=iw/2+side*eyeDX;const glow=ctx.createRadialGradient(ex,eyeY,0,ex,eyeY,eyeR*3.2);glow.addColorStop(0,'rgba(255,255,255,'+(.25+.55*eyePower)+')');glow.addColorStop(.35,el('glowColor').value+'cc');glow.addColorStop(1,'rgba(90,180,255,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(ex,eyeY,eyeR*3.2,0,Math.PI*2);ctx.fill()});ctx.restore()}
-let my=ih*.68,mw=iw*.105,mh=Math.max(1,ih*(.012+face.mouth*.075));ctx.fillStyle='#7d3346';ctx.beginPath();ctx.ellipse(iw/2,my,mw,mh,0,0,Math.PI*2);ctx.fill();
-if(face.expression==='happy'){ctx.strokeStyle='#7d3346';ctx.lineWidth=Math.max(2,iw*.012);ctx.beginPath();ctx.arc(iw/2,my-ih*.035,mw,0.15,Math.PI-.15);ctx.stroke()}
+let my=ih*.68,mw=iw*.105,mh=Math.max(1,ih*(.012+face.mouth*.075)),shape=face.viseme||'rest';ctx.fillStyle='#7d3346';ctx.strokeStyle='#7d3346';ctx.lineWidth=Math.max(2,iw*.012);ctx.beginPath();
+if(shape==='E'||shape==='wide'){ctx.ellipse(iw/2,my,mw*(shape==='wide'?1.25:1.1),Math.max(2,mh*.55),0,0,Math.PI*2);ctx.fill()}
+else if(shape==='O'){ctx.ellipse(iw/2,my,mw*.68,Math.max(3,mh*1.45),0,0,Math.PI*2);ctx.fill()}
+else if(shape==='FV'){ctx.moveTo(iw/2-mw,my);ctx.lineTo(iw/2+mw,my);ctx.moveTo(iw/2-mw*.65,my-2);ctx.lineTo(iw/2+mw*.65,my-2);ctx.stroke()}
+else if(shape==='L'){ctx.moveTo(iw/2-mw,my);ctx.quadraticCurveTo(iw/2,my+mh*.7,iw/2+mw,my);ctx.stroke()}
+else if(shape==='smile'){ctx.arc(iw/2,my-ih*.025,mw,0.12,Math.PI-.12);ctx.stroke()}
+else if(shape==='rest'){ctx.moveTo(iw/2-mw*.7,my);ctx.lineTo(iw/2+mw*.7,my);ctx.stroke()}
+else{ctx.ellipse(iw/2,my,mw,Math.max(2,mh),0,0,Math.PI*2);ctx.fill()}
+if(face.expression==='happy'&&shape==='rest'){ctx.beginPath();ctx.arc(iw/2,my-ih*.035,mw,0.15,Math.PI-.15);ctx.stroke()}
 ctx.restore()}
 ctx.restore()};
 const oldExport=el('exportJson').onclick;
@@ -1242,4 +1249,16 @@ el('generateCameraFollow').onclick=()=>{
  applyKey(frame);syncCamera();renderFrames();draw();pushHistory();
  el('cameraFollowStatus').textContent='Generated '+bodyFrames.length+' camera follow keys tracking '+parts[targetIndex].name+'. Play the timeline to preview the follow movement.';
 };
+
+
+/* v7.6: authored dialogue visemes; independent of amplitude-based audio lip-sync */
+face.viseme=face.viseme||'rest';
+const visemeProfiles={rest:{mouth:.04,expression:'neutral'},A:{mouth:.92,expression:'surprised'},E:{mouth:.48,expression:'happy'},O:{mouth:.82,expression:'surprised'},FV:{mouth:.18,expression:'neutral'},L:{mouth:.28,expression:'neutral'},wide:{mouth:1,expression:'angry'},smile:{mouth:.3,expression:'happy'}};
+function setVisemeShape(shape){const p=visemeProfiles[shape]||visemeProfiles.rest;face.viseme=shape;face.mouth=p.mouth;face.expression=p.expression;syncFace();el('visemeShape').value=shape;draw()}
+el('visemeShape').onchange=e=>setVisemeShape(e.target.value);
+el('addVisemeKey').onclick=()=>{const shape=el('visemeShape').value;setVisemeShape(shape);faceKeys[frame]=faceSnapshot();renderFrames();el('visemeStatus').textContent='Added '+shape+' mouth key at frame '+frame+'.';};
+el('clearVisemeKeys').onclick=()=>{Object.keys(faceKeys).forEach(k=>delete faceKeys[k]);renderFrames();draw();el('visemeStatus').textContent='All facial and dialogue mouth keys cleared.'};
+el('paceDialogue').onclick=()=>{const words=el('visemeDialogue').value.trim().split(/\\s+/).filter(Boolean);if(!words.length){el('visemeStatus').textContent='Enter a dialogue line first.';return}const shapes=['A','E','O','FV','L','A','smile','O'];const start=frame,available=Math.max(1,120-start),step=Math.max(2,Math.floor(available/Math.max(1,words.length*2)));words.forEach((word,i)=>{const f=Math.min(120,start+i*step*2),shape=shapes[(word.replace(/[^a-z]/gi,'').length+i)%shapes.length],p=visemeProfiles[shape];faceKeys[f]={...faceSnapshot(),...p,viseme:shape};const closeFrame=Math.min(120,f+step);faceKeys[closeFrame]={...faceSnapshot(),...visemeProfiles.rest,viseme:'rest'}});renderFrames();applyKey(frame);draw();el('visemeStatus').textContent='Created approximate mouth timing for '+words.length+' words from frame '+start+'. Review and adjust cues; this is not speech recognition.'};
+const applyKeyBeforeViseme=applyKey;applyKey=function(f){applyKeyBeforeViseme(f);const ks=Object.keys(faceKeys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let a=ks.filter(k=>k<=f).pop(),b=ks.find(k=>k>=f);if(a===undefined)a=ks[0];if(b===undefined)b=ks[ks.length-1];face.viseme=(f-a<(b-a)/2?faceKeys[a]:faceKeys[b]).viseme||'rest'};
+window.__stickMotionFaceKeys=faceKeys;window.__stickMotionVisemeProfiles=visemeProfiles;
 </script></body></html>
