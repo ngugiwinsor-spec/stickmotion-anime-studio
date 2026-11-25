@@ -1349,4 +1349,16 @@ window.__stickMotionScheduleEpisodeSfx=(sceneId,f,when)=>scheduleEpisodeSfx(scen
 window.__stickMotionResetEpisodeSfxEvents=()=>resetEpisodeSfxEvents();
 window.__stickMotionEpisodeSfxEvents=episodeSfxEvents;
 
+/* Release audit: persist sound-cue edits immediately, including scene snapshots. */
+const sfxRefreshBeforeReleaseAutosave=sfxRefresh;
+sfxRefresh=function(){
+ sfxRefreshBeforeReleaseAutosave();
+ if(typeof queueAutosave==='function')queueAutosave();
+ if(typeof activeSceneId!=='undefined'&&activeSceneId&&typeof saveActiveScene==='function'&&typeof persistScenes==='function'){
+  saveActiveScene();
+  persistScenes();
+ }
+};
+
+
 </script></body></html>
