@@ -1048,8 +1048,8 @@ el('exportVideo').onclick=async()=>{
   setTimeout(()=>URL.revokeObjectURL(url),30000);
   videoStatus('Video exported · '+(blob.size/1048576).toFixed(1)+' MB');
  }catch(err){
-  if(typeof recorder!=='undefined'&&recorder.state!=='inactive')recorder.stop();
-  videoStatus('Export failed — try a shorter scene');
+  console.error('Single-scene video export failed:',err);
+  videoStatus('Export failed: '+(err?.message||String(err)));
  }finally{
   window.__stickMotionExporting=false;
   audioEl.pause();
