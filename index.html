@@ -1365,7 +1365,7 @@ const sfxRefreshBeforeReleaseAutosave=sfxRefresh;
 sfxRefresh=function(){
  sfxRefreshBeforeReleaseAutosave();
  if(typeof queueAutosave==='function')queueAutosave();
- if(typeof activeSceneId!=='undefined'&&activeSceneId&&typeof saveActiveScene==='function'&&typeof persistScenes==='function'){
+ if(!window.__stickMotionExportRenderer&&typeof activeSceneId!=='undefined'&&activeSceneId&&typeof saveActiveScene==='function'&&typeof persistScenes==='function'){
   saveActiveScene();
   persistScenes();
  }
