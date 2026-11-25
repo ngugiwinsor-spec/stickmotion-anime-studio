@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.23');
+  await expect(page.locator('.badge')).toContainText('v7.24');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -491,5 +491,24 @@ test('sound cues export to JSON and can be imported back', async ({ page }) => {
     {frame:18,type:'magic',volume:55,muted:true},
     {frame:42,type:'whoosh',volume:90,muted:false}
   ]);
+  expect(errors).toEqual([]);
+});
+
+
+test('sound cues can be shifted together without changing cue settings', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#frame').fill('12');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#sfxShiftFrames').fill('8');
+  await page.locator('#shiftSfxCues').click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.frame))).toEqual([8,20]);
+  await expect(page.locator('#sfxStatus')).toHaveText('Shifted 2 sound cues by +8 frames');
+  await page.locator('#sfxShiftFrames').fill('-30');
+  await page.locator('#shiftSfxCues').click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.frame))).toEqual([0,0]);
   expect(errors).toEqual([]);
 });
