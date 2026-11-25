@@ -629,6 +629,7 @@ test('studio layout remains usable at a narrow mobile viewport', async ({ page }
     canvas: document.querySelector('canvas').getBoundingClientRect().width,
     overflow: [...document.querySelectorAll('body *')].map(el => ({tag:el.tagName,id:el.id,cls:typeof el.className==='string'?el.className:'',right:Math.round(el.getBoundingClientRect().right),width:Math.round(el.getBoundingClientRect().width),scroll:el.scrollWidth})).filter(x=>x.right>390||x.width>390).slice(0,20)
   }));
+  console.log('MOBILE_LAYOUT_DIAGNOSTIC', JSON.stringify(layout));
   expect(layout.document).toBeLessThanOrEqual(layout.viewport);
   expect(layout.main).toBeLessThanOrEqual(layout.viewport);
   expect(layout.stage).toBeGreaterThan(0);
