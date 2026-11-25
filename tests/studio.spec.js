@@ -284,6 +284,14 @@ test('sound effects volume control updates preview and export mix level', async 
   expect(await page.evaluate(() => window.__stickMotionSfxVolume)).toBe(35);
   await page.locator('#sfxVolume').fill('0');
   expect(await page.evaluate(() => window.__stickMotionSfxVolume)).toBe(0);
+  await page.locator('#sfxVolume').fill('42');
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  expect(saved.soundEffectsVolume).toBe(42);
+  await page.locator('#sfxVolume').fill('90');
+  await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
+  await expect(page.locator('#sfxVolume')).toHaveValue('42');
+  await expect(page.locator('#sfxVolumeLabel')).toHaveText('42%');
+  expect(await page.evaluate(() => window.__stickMotionSfxVolume)).toBe(42);
   expect(errors).toEqual([]);
 });
 
