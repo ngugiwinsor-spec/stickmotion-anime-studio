@@ -867,7 +867,7 @@ refreshMotionLibrary();
 const videoStatus=msg=>{const n=el('videoStatus');if(n)n.textContent=msg};
 function exportVideoBitrate(){return Math.max(1000000,Math.min(24000000,Number(el('exportQuality')?.value)||8000000));}
 function supportedVideoMime(){
- const types=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+ const types=['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm'];
  return types.find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||'';
 }
 el('exportVideo').onclick=async()=>{
