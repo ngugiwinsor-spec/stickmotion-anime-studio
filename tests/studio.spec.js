@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.13');
+  await expect(page.locator('.badge')).toContainText('v7.14');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -273,6 +273,23 @@ test('sound effects cues are editable, persistent, and previewable', async ({ pa
 
 
 
+
+test('existing sound cues can be edited and saved in project state', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await expect(page.locator('#sfxCueList')).toContainText('Frame 0 · impact');
+  await page.getByRole('spinbutton', { name: 'Sound cue frame 0' }).fill('27');
+  await page.getByRole('combobox', { name: 'Sound cue type at frame 0' }).selectOption('magic');
+  await page.getByRole('button', { name: 'Save sound cue at frame 0' }).click();
+  await expect(page.locator('#sfxCueList')).toContainText('Frame 27 · magic');
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[27,'magic']]);
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[27,'magic']]);
+  expect(errors).toEqual([]);
+});
 
 test('sound effects volume control updates preview and export mix level', async ({ page }) => {
   const errors = [];
