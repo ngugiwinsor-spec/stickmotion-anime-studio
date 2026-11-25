@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.16 • Per-Cue Sound Volume</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.17 • Cue Preview</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -1312,10 +1312,11 @@ function sfxRefresh(){
   const cueType=document.createElement('select');cueType.setAttribute('aria-label','Sound cue type at frame '+cue.frame);['impact','whoosh','magic','step','alert'].forEach(type=>{const option=document.createElement('option');option.value=type;option.textContent=type[0].toUpperCase()+type.slice(1);cueType.append(option)});cueType.value=cue.type;cueType.style.width='105px';
   const cueVolume=document.createElement('input');cueVolume.type='range';cueVolume.min='0';cueVolume.max='100';cueVolume.step='5';cueVolume.value=cue.volume??100;cueVolume.setAttribute('aria-label','Sound cue volume at frame '+cue.frame);cueVolume.style.width='90px';
   const cueVolumeLabel=document.createElement('span');cueVolumeLabel.textContent=(cue.volume??100)+'%';cueVolume.oninput=()=>{cueVolumeLabel.textContent=cueVolume.value+'%'};
+  const previewCue=document.createElement('button');previewCue.type='button';previewCue.textContent='Preview';previewCue.setAttribute('aria-label','Preview sound cue at frame '+cue.frame);previewCue.onclick=async()=>{sfxInit();if(!sfxContext){el('sfxStatus').textContent='Web Audio is unavailable';return}if(sfxContext.state==='suspended')await sfxContext.resume();sfxTone(cue.type,undefined,cue.volume??100);el('sfxStatus').textContent='Previewing '+cue.type+' cue ('+(cue.volume??100)+'%)'};
   const save=document.createElement('button');save.type='button';save.textContent='Save';save.setAttribute('aria-label','Save sound cue at frame '+cue.frame);save.onclick=()=>{const nextFrame=Number(cueFrame.value);if(!Number.isFinite(nextFrame)){cueFrame.value=cue.frame;return}cue.frame=Math.max(0,Math.min(120,Math.round(nextFrame)));cue.type=cueType.value;cue.volume=Number(cueVolume.value);sfxRefresh();pushHistory()};
   const duplicate=document.createElement('button');duplicate.type='button';duplicate.textContent='Duplicate';duplicate.setAttribute('aria-label','Duplicate sound cue at frame '+cue.frame);duplicate.onclick=()=>{sfxCues.push({id:Date.now()+Math.random(),frame:cue.frame,type:cue.type,volume:cue.volume??100});sfxRefresh();pushHistory()};
   const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Delete';remove.setAttribute('aria-label','Delete sound cue at frame '+cue.frame);remove.onclick=()=>{sfxCues=sfxCues.filter(x=>x.id!==cue.id);sfxRefresh();pushHistory()};
-  row.append(jump,cueFrame,cueType,cueVolume,cueVolumeLabel,save,duplicate,remove);list.append(row);
+  row.append(jump,cueFrame,cueType,cueVolume,cueVolumeLabel,previewCue,save,duplicate,remove);list.append(row);
  });
 }
 const projectStateBeforeSfx=projectState;
