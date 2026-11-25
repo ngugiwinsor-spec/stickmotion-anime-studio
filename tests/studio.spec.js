@@ -784,3 +784,107 @@ test('diagnostic: Mediabunny encodes and Chromium decodes a deterministic WebM',
   expect(result.height).toBe(180);
   expect(result.decodedPixel[3]).toBe(255);
 });
+
+
+test('isolated renderer draws scene frames without changing the editor canvas', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.locator('#motionPreset').selectOption('walk');
+  await page.locator('#generateMotion').click();
+  const before = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  const state = await page.evaluate(() => window.__stickMotionProjectState());
+  const renderer = await page.evaluateHandle(() => new Promise(resolve => {
+    const frame = document.createElement('iframe');
+    frame.style.display = 'none';
+    const url = new URL(location.href);
+    url.searchParams.set('export-renderer', '1');
+    frame.onload = () => resolve(frame);
+    frame.src = url.href;
+    document.body.appendChild(frame);
+  }));
+  const result = await renderer.evaluate(async (frame, project) => {
+    if (!frame.contentWindow.__stickMotionExportRenderer) throw new Error('Renderer isolation mode was not enabled');
+    await frame.contentWindow.__stickMotionLoadExportScene(project);
+    const firstCanvas = frame.contentWindow.__stickMotionRenderExportFrame(0);
+    const first = firstCanvas.toDataURL();
+    const secondCanvas = frame.contentWindow.__stickMotionRenderExportFrame(20);
+    const second = secondCanvas.toDataURL();
+    return { width: secondCanvas.width, height: secondCanvas.height, framesDiffer: first !== second };
+  }, state);
+  const after = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+  expect(result.width).toBe(1280);
+  expect(result.height).toBe(720);
+  expect(result.framesDiffer).toBeTruthy();
+  expect(after).toBe(before);
+  await renderer.evaluate(frame => frame.remove());
+});
+
+test('episode audio mixer aligns scene sound cues and emits continuous audio chunks', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const scenes = [
+      { duration: 1, project: { soundEffectsVolume: 100, soundEffects: [{ frame: 12, type: 'impact', volume: 100 }] } },
+      { duration: 1, project: { soundEffectsVolume: 80, soundEffects: [{ frame: 6, type: 'magic', volume: 90 }] } }
+    ];
+    const chunks = [];
+    for await (const buffer of window.StickMotionEpisodeExport.mixEpisodeAudio({ scenes, fps: 24, chunkSeconds: 1 })) chunks.push(buffer);
+    const rms = (buffer, fromSeconds, toSeconds) => {
+      const channel = buffer.getChannelData(0);
+      const start = Math.floor(fromSeconds * buffer.sampleRate);
+      const end = Math.min(channel.length, Math.floor(toSeconds * buffer.sampleRate));
+      let sum = 0;
+      for (let i = start; i < end; i++) sum += channel[i] * channel[i];
+      return Math.sqrt(sum / Math.max(1, end - start));
+    };
+    return {
+      chunks: chunks.length,
+      duration: chunks.reduce((sum, buffer) => sum + buffer.duration, 0),
+      firstCueRms: rms(chunks[0], 0.48, 0.75),
+      secondCueRms: rms(chunks[1], 0.23, 0.52)
+    };
+  });
+  expect(result.chunks).toBe(2);
+  expect(result.duration).toBeCloseTo(2, 2);
+  expect(result.firstCueRms).toBeGreaterThan(0.001);
+  expect(result.secondCueRms).toBeGreaterThan(0.001);
+});
+
+test('Mediabunny episode encoder includes the mixed Opus audio track', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const audioContext = new Offline(1, 48000, 48000);
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    gain.gain.value = 0.12;
+    oscillator.frequency.value = 440;
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(0);
+    oscillator.stop(1);
+    const audioBuffer = await audioContext.startRendering();
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 180;
+    const blob = await window.StickMotionEpisodeExport.encode({
+      canvas, fps: 24, frameCount: 24, bitrate: 1000000, audioBuffer,
+      renderFrame: async i => {
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#234';
+        context.fillRect(0, 0, 320, 180);
+        context.fillStyle = '#fff';
+        context.fillRect(i * 10, 40, 30, 30);
+      }
+    });
+    const MB = await window.StickMotionEpisodeExport.loadMediabunny();
+    const input = new MB.Input({ source: new MB.BlobSource(blob), formats: MB.ALL_FORMATS });
+    const videoTrack = await input.getPrimaryVideoTrack();
+    const audioTrack = await input.getPrimaryAudioTrack();
+    const duration = await input.computeDuration();
+    return { bytes: blob.size, video: !!videoTrack, audio: !!audioTrack, duration };
+  });
+  expect(result.bytes).toBeGreaterThan(1000);
+  expect(result.video).toBeTruthy();
+  expect(result.audio).toBeTruthy();
+  expect(result.duration).toBeGreaterThanOrEqual(0.9);
+});
