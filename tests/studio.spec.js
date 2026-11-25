@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.21');
+  await expect(page.locator('.badge')).toContainText('v7.22');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -446,5 +446,24 @@ test('individual sound cues can be muted, persisted, and duplicated', async ({ p
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.muted))).toEqual([true, true]);
   await page.getByRole('button', { name: 'Unmute sound cue at frame 0' }).first().click();
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.muted))).toEqual([false, true]);
+  expect(errors).toEqual([]);
+});
+
+
+test('muted sound cues can be removed without deleting active cues', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#frame').fill('12');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#addSfxCue').click();
+  await page.getByRole('button', { name: 'Mute sound cue at frame 0' }).click();
+  await expect(page.locator('#sfxStatus')).toContainText('2 cues');
+  await page.locator('#removeMutedSfxCues').click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.muted]))).toEqual([[12,false]]);
+  await expect(page.locator('#sfxStatus')).toHaveText('Removed 1 muted cue');
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  expect(saved.soundEffects).toHaveLength(1);
   expect(errors).toEqual([]);
 });
