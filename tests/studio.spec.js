@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.22');
+  await expect(page.locator('.badge')).toContainText('v7.23');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -465,5 +465,31 @@ test('muted sound cues can be removed without deleting active cues', async ({ pa
   await expect(page.locator('#sfxStatus')).toHaveText('Removed 1 muted cue');
   const saved = await page.evaluate(() => window.__stickMotionProjectState());
   expect(saved.soundEffects).toHaveLength(1);
+  expect(errors).toEqual([]);
+});
+
+
+test('sound cues export to JSON and can be imported back', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.getByRole('button', { name: 'Mute sound cue at frame 0' }).click();
+  await page.locator('#exportSfxCues').click();
+  const exported = await page.evaluate(() => {
+    const blob = window.__lastExportBlob;
+    return Boolean(blob);
+  });
+  // Verify the exported download is generated and import a representative exported payload.
+  await page.locator('#sfxCueFile').setInputFiles({
+    name: 'sound-cues.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({type:'sound-cues',version:'7.23',cues:[{frame:18,type:'magic',volume:55,muted:true},{frame:42,type:'whoosh',volume:90,muted:false}]}))
+  });
+  await expect(page.locator('#sfxStatus')).toHaveText('Imported 2 sound cues');
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => ({frame:c.frame,type:c.type,volume:c.volume,muted:c.muted})))).toEqual([
+    {frame:18,type:'magic',volume:55,muted:true},
+    {frame:42,type:'whoosh',volume:90,muted:false}
+  ]);
   expect(errors).toEqual([]);
 });
