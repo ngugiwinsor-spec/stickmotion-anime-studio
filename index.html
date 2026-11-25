@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.8 • Editable SFX Cues</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.9 • Episode SFX Export</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -950,6 +950,7 @@ el('exportEpisodeVideo').onclick=async()=>{
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
  const totalFrames=episodeScenes.reduce((n,sc)=>n+Math.max(1,Math.ceil((Number(sc.duration)||5)*fps)),0);
  const stream=c.captureStream(fps),chunks=[];
+ sfxInit();if(sfxDestination)sfxDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
  let recorder=null,prevFrame=null,rendered=0;
  window.__stickMotionExporting=true;
  const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -974,6 +975,8 @@ el('exportEpisodeVideo').onclick=async()=>{
   recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
   const finished=new Promise((resolve,reject)=>{recorder.onstop=resolve;recorder.onerror=e=>reject(e.error||new Error('Recording failed'))});
   recorder.start(250);
+  if(sfxContext?.state==='suspended')await sfxContext.resume();
+  const episodeSfxStart=sfxContext?.currentTime||0;
   if(audioStream){audioEl.currentTime=Math.max(0,Number(el('audioOffset').value)||0);await audioEl.play().catch(()=>{})}
   const start=performance.now();
   for(let si=0;si<episodeScenes.length;si++){
@@ -982,6 +985,7 @@ el('exportEpisodeVideo').onclick=async()=>{
    const previous=prevFrame;
    for(let f=0;f<count;f++){
     await renderSceneAt(sc,f);
+    scheduleEpisodeSfx(sc.id,f,episodeSfxStart+rendered/fps);
     if(si>0&&f<transFrames&&previous){
      const progress=transFrames<=1?1:(f+1)/transFrames;
      const temp=document.createElement('canvas');temp.width=c.width;temp.height=c.height;
@@ -1308,4 +1312,15 @@ const loadProjectStateBeforeSfx=loadProjectState;
 loadProjectState=function(state){loadProjectStateBeforeSfx(state);sfxCues=Array.isArray(state?.soundEffects)?state.soundEffects.filter(x=>Number.isFinite(Number(x.frame))&&['impact','whoosh','magic','step','alert'].includes(x.type)).map(x=>({id:x.id||Date.now()+Math.random(),frame:Math.max(0,Math.min(120,Number(x.frame))),type:x.type})):[];sfxRefresh();window.__stickMotionSfxCues=sfxCues};
 window.__stickMotionProjectState=()=>projectState();
 window.__stickMotionLoadProjectState=state=>loadProjectState(state);
+
+/* v7.9: sound effects follow each scene into full-episode WebM exports */
+let episodeSfxEvents=[];
+function scheduleEpisodeSfx(sceneId,f,when){
+ const matched=sfxCues.filter(x=>x.frame===f);
+ matched.forEach(x=>episodeSfxEvents.push({sceneId,frame:f,type:x.type,offset:when}));
+ sfxAtFrame(f,when);
+}
+window.__stickMotionScheduleEpisodeSfx=(sceneId,f,when)=>scheduleEpisodeSfx(sceneId,f,when);
+window.__stickMotionEpisodeSfxEvents=episodeSfxEvents;
+
 </script></body></html>
