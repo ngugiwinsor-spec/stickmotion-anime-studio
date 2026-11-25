@@ -961,7 +961,7 @@ draw=function(){
    const y=((i*83+frame*19)%c.height),x=((i*137+frame*31)%c.width);
    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+35+90*amount,y-5-(i%4)*3);ctx.stroke();
   }
- }else if(type==='sparks){
+ }else if(type==='sparks'){
   const count=Math.round(8+24*amount);
   for(let i=0;i<count;i++){
    const a=i*2.399+phase,r=18+((i*29+frame*7)%75),x=tx+Math.cos(a)*r,y=ty+Math.sin(a)*r;
