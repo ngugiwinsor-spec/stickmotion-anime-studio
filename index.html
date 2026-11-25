@@ -956,7 +956,7 @@ el('exportEpisodeVideo').onclick=async()=>{
  let recorder=null,prevFrame=null,rendered=0;
  window.__stickMotionExporting=true;
  const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
- const waitImages=async()=>{const imgs=parts.map(p=>p.img).filter(Boolean);await Promise.all(imgs.map(im=>im.complete?Promise.resolve():new Promise(res=>{im.onload=res;im.onerror=res})))};
+ const waitImages=async()=>{const imgs=parts.map(p=>p.img).filter(Boolean),pending=imgs.filter(im=>!im.complete);if(!pending.length)return;await Promise.race([Promise.all(pending.map(im=>new Promise(res=>{im.addEventListener('load',res,{once:true});im.addEventListener('error',res,{once:true})}))),delay(15000).then(()=>{throw new Error('Timed out waiting for '+pending.length+' artwork image(s)')})])};
  let loadedRenderSceneId=null;
  const loadRenderScene=async sc=>{
   if(loadedRenderSceneId===sc.id)return;
@@ -1017,7 +1017,7 @@ el('exportEpisodeVideo').onclick=async()=>{
   videoStatus('Full episode exported · '+(blob.size/1048576).toFixed(1)+' MB');
  }catch(err){
   if(recorder&&recorder.state!=='inactive')recorder.stop();
-  videoStatus('Episode export failed — check scene artwork and try again');
+  videoStatus('Episode export failed: '+(err?.message||String(err)));
  }finally{
   window.__stickMotionExporting=false;
   audioEl.pause();
