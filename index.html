@@ -1212,8 +1212,8 @@ function refreshCameraFollowTargets(){
  parts.forEach((p,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=p.name||('Part '+(i+1));q.append(o)});
  if(old!=='auto'&&Number(old)<parts.length)q.value=old;
 }
-const addDemoBeforeCameraFollow=el('addDemo').onclick;
-el('addDemo').onclick=async()=>{await addDemoBeforeCameraFollow();refreshCameraFollowTargets()};
+const renderLayersBeforeCameraFollow=renderLayers;
+renderLayers=function(){renderLayersBeforeCameraFollow();refreshCameraFollowTargets()};
 const cameraFollowOriginalCapture=el('files').onchange;
 el('files').addEventListener('change',()=>setTimeout(refreshCameraFollowTargets,0));
 el('generateCameraFollow').onclick=()=>{
