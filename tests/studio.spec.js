@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.17');
+  await expect(page.locator('.badge')).toContainText('v7.18');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -310,6 +310,17 @@ test('sound cues can be duplicated independently and persist', async ({ page }) 
   await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[0,'impact'],[36,'whoosh']]);
   expect(errors).toEqual([]);
+});
+
+test('sound cue can be snapped to the current timeline playhead', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#frame').fill('42');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.getByRole('button', { name: 'Set sound cue to current frame from 0' }).click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.frame))).toEqual([42]);
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  expect(saved.soundEffects[0].frame).toBe(42);
 });
 
 test('each sound cue can be previewed using its saved type and volume', async ({ page }) => {
