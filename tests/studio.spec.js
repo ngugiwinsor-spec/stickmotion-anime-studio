@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.5');
+  await expect(page.locator('.badge')).toContainText('v7.6');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -218,5 +218,26 @@ test('camera follow generates target-tracking camera keys', async ({ page }) => 
   const result = await page.evaluate(() => ({count:Object.keys(window.__stickMotionCameraKeys).length,values:Object.values(window.__stickMotionCameraKeys)}));
   expect(result.count).toBe(9);
   expect(result.values.some(k => Math.abs(k.x)>0.1 || Math.abs(k.y)>0.1)).toBeTruthy();
+  expect(errors).toEqual([]);
+});
+
+
+test('viseme dialogue adds mouth-shape keys and approximate word timing', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#visemeShape').selectOption('O');
+  await page.locator('#addVisemeKey').click();
+  let state = await page.evaluate(() => ({keys:Object.keys(window.__stickMotionFaceKeys),shape:window.__stickMotionFaceKeys[0]?.viseme,mouth:window.__stickMotionFaceKeys[0]?.mouth}));
+  expect(state.keys).toContain('0');
+  expect(state.shape).toBe('O');
+  expect(state.mouth).toBeGreaterThan(0.5);
+  await page.locator('#visemeDialogue').fill('We will protect this city');
+  await page.locator('#paceDialogue').click();
+  state = await page.evaluate(() => Object.values(window.__stickMotionFaceKeys).filter(k => k.viseme).length);
+  expect(state).toBeGreaterThan(1);
+  await expect(page.locator('#visemeStatus')).toContainText('not speech recognition');
   expect(errors).toEqual([]);
 });
