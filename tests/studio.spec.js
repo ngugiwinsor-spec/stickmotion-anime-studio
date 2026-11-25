@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.2');
+  await expect(page.locator('.badge')).toContainText('v7.3');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -163,5 +163,23 @@ test('character acting accents change actual keyed poses and facial keys', async
     return torso >= 0 && Object.keys(keys).some(f => Math.abs(keys[f][torso].rot) > 0.1);
   });
   expect(changed).toBeTruthy();
+  expect(errors).toEqual([]);
+});
+
+test('action choreography reshapes generated attack keyframes', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#motionPreset').selectOption('attack');
+  await page.locator('#generateMotion').click();
+  const before = await page.evaluate(() => JSON.stringify(keys));
+  await page.locator('#choreoPattern').selectOption('five');
+  await page.locator('#choreoDirection').selectOption('left');
+  await page.locator('#applyChoreography').click();
+  const after = await page.evaluate(() => JSON.stringify(keys));
+  expect(after).not.toBe(before);
+  await expect(page.locator('#choreoStatus')).toContainText('Five-hit combo applied across 9 poses, facing left');
   expect(errors).toEqual([]);
 });
