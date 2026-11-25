@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.16');
+  await expect(page.locator('.badge')).toContainText('v7.17');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -310,6 +310,15 @@ test('sound cues can be duplicated independently and persist', async ({ page }) 
   await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[0,'impact'],[36,'whoosh']]);
   expect(errors).toEqual([]);
+});
+
+test('each sound cue can be previewed using its saved type and volume', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.getByRole('slider', { name: 'Sound cue volume at frame 0' }).fill('40');
+  await page.getByRole('button', { name: 'Save sound cue at frame 0' }).click();
+  await page.getByRole('button', { name: 'Preview sound cue at frame 0' }).click();
+  await expect(page.locator('#sfxStatus')).toContainText('Previewing impact cue (40%)');
 });
 
 test('individual sound cue volume is editable and persists', async ({ page }) => {
