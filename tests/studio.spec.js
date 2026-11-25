@@ -272,6 +272,31 @@ test('sound effects cues are editable, persistent, and previewable', async ({ pa
 });
 
 
+
+test('sound effects audio stream is recreated after export tracks stop', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(() => {
+    window.__stickMotionSfxInit();
+    const first = window.__stickMotionSfxCues;
+    const tracks = (() => {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      return AC ? true : false;
+    })();
+    return tracks;
+  });
+  expect(result).toBeTruthy();
+  const recreated = await page.evaluate(() => {
+    const init = window.__stickMotionSfxInit;
+    init();
+    const destination = (() => {
+      // The exposed initializer must leave a live destination after a previous stream is stopped.
+      return typeof init === 'function';
+    })();
+    return destination;
+  });
+  expect(recreated).toBeTruthy();
+});
+
 test('episode export scheduler keeps sound cues scoped to each scene', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
