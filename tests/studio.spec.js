@@ -938,12 +938,13 @@ test('full episode export preserves imported audio and scene sound effects', asy
       view.setInt16(44 + i * 2, Math.round(sample * 32767), true);
     }
     const audio = document.querySelector('#dialogueAudio');
+    const metadataReady = new Promise((resolve, reject) => {
+      audio.addEventListener('loadedmetadata', resolve, { once: true });
+      audio.addEventListener('error', () => reject(new Error('Synthetic imported audio could not be loaded')), { once: true });
+    });
     audio.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
     audio.load();
-    await new Promise((resolve, reject) => {
-      audio.onloadedmetadata = resolve;
-      audio.onerror = () => reject(new Error('Synthetic imported audio could not be loaded'));
-    });
+    await metadataReady;
     return audio.duration;
   });
   expect(audioDuration).toBeCloseTo(2, 1);
