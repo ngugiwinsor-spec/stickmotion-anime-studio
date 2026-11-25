@@ -18,7 +18,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
 </style></head>
 <body>
-<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v4.1 • Cut-out Rig Editor</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
+<header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v4.2 • Hierarchical Character Rig</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
 <main>
 <aside class="aside-left">
 <section><h3>Import artwork</h3><input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple><p class="small">Import transparent body-part images. Add them one by one or select several.</p><button id="addDemo">Load demo puppet</button></section>
@@ -37,6 +37,13 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Pivot X (image pixels)</label><input id="px" type="number" value="0"><label>Pivot Y</label><input id="py" type="number" value="0"><div class="row" style="margin-top:8px"><button id="pivotCenter">Center pivot</button><button id="remove" class="danger">Remove part</button></div>
 <label>Quick rotation</label><div class="row"><button data-rot="-15">−15°</button><button data-rot="15">+15°</button></div>
 </section>
+<section><h3>Rig hierarchy</h3>
+<label>Attach selected part to</label><select id="parentSelect"><option value="">Root (no parent)</option></select>
+<div class="row" style="margin-top:8px"><button id="attachPart">Attach</button><button id="detachPart">Detach</button></div>
+<label>Joint pivot presets</label><div class="row"><button data-pivot="top">Top</button><button data-pivot="bottom">Bottom</button><button data-pivot="left">Left</button><button data-pivot="right">Right</button></div>
+<div class="row"><button data-pivot="shoulder">Shoulder</button><button data-pivot="elbow">Elbow</button><button data-pivot="wrist">Wrist</button></div>
+<div class="row"><button data-pivot="hip">Hip</button><button data-pivot="knee">Knee</button><button data-pivot="ankle">Ankle</button></div>
+<div class="hint">Attach limbs to a torso or upper limb to create a parent-child rig. Child parts inherit parent rotation and position. Set the pivot at the joint for natural rotation.</div></section>
 <section><h3>How to rig</h3><div class="hint">1. Prepare separate transparent PNGs (head, torso, upper arm, forearm, thigh, shin, etc.).<br>2. Import the parts. Arrange them on the stage.<br>3. Set each pivot where the joint should rotate (e.g. elbow or shoulder).<br>4. Capture key poses on the timeline.<br>5. Export your rig JSON to save the setup.</div></section>
 </aside></main>
 <script>
@@ -75,4 +82,22 @@ function download(url,name,type){let a=document.createElement('a');a.href=url;a.
 let drag=null;c.onpointerdown=e=>{let r=c.getBoundingClientRect(),x=(e.clientX-r.left)*c.width/r.width-c.width/2,y=(e.clientY-r.top)*c.height/r.height-c.height/2;for(let i=parts.length-1;i>=0;i--){let p=parts[i];if(!p.visible)continue;let dx=x-p.x,dy=y-p.y,co=Math.cos(-p.rot*Math.PI/180),si=Math.sin(-p.rot*Math.PI/180),lx=(dx*co-dy*si)/p.scale+p.px,ly=(dx*si+dy*co)/p.scale+p.py;if(lx>=0&&ly>=0&&lx<=p.img.width&&ly<=p.img.height){select(i);drag={i,startX:x,startY:y,ox:p.x,oy:p.y};c.setPointerCapture(e.pointerId);break}}};c.onpointermove=e=>{if(!drag)return;let r=c.getBoundingClientRect(),x=(e.clientX-r.left)*c.width/r.width-c.width/2,y=(e.clientY-r.top)*c.height/r.height-c.height/2,p=parts[drag.i];p.x=drag.ox+x-drag.startX;p.y=drag.oy+y-drag.startY;syncControls();draw()};c.onpointerup=()=>drag=null;
 function demo(){parts=[];let make=(name,color,w,h,x,y)=>{let cc=document.createElement('canvas');cc.width=w;cc.height=h;let q=cc.getContext('2d');q.fillStyle=color;q.strokeStyle='#101827';q.lineWidth=6;q.beginPath();q.roundRect(3,3,w-6,h-6,Math.min(24,w/4));q.fill();q.stroke();let im=new Image();im.src=cc.toDataURL();im.onload=()=>{parts.push({name,img:im,x,y,rot:0,scale:1,opacity:1,px:w/2,py:h/2,visible:true});renderLayers();select(parts.length-1);draw()}};make('Torso','#5778c8',130,190,0,40);make('Head','#f0c5a1',120,120,0,-130);make('Left upper arm','#5778c8',55,130,-100,-15);make('Left forearm','#f0c5a1',48,115,-130,80);make('Right upper arm','#5778c8',55,130,100,-15);make('Right forearm','#f0c5a1',48,115,130,80);make('Left thigh','#303d68',65,145,-40,170);make('Left shin','#65729a',55,135,-45,285);make('Right thigh','#303d68',65,145,40,170);make('Right shin','#65729a',55,135,45,285)}
 el('addDemo').onclick=demo;renderFrames();draw();
-</script></body></html>
+
+/* v4.2 hierarchy + joint pivot controls */
+parts.forEach(p=>{if(p.parent===undefined)p.parent=-1});
+function refreshParentMenu(){const q=el('parentSelect');q.innerHTML='<option value="">Root (no parent)</option>';parts.forEach((p,i)=>{if(i!==sel){let o=document.createElement('option');o.value=i;o.textContent=p.name;q.append(o)}});if(sel>=0&&parts[sel].parent>=0)q.value=String(parts[sel].parent)}
+const oldSelect=select;
+select=function(i){oldSelect(i);refreshParentMenu()};
+function worldTransform(i){let chain=[],seen=new Set();while(i>=0&&i<parts.length&&!seen.has(i)){seen.add(i);chain.unshift(i);i=parts[i].parent??-1}let x=0,y=0,r=0,sc=1;chain.forEach(j=>{let p=parts[j],co=Math.cos(r*Math.PI/180),si=Math.sin(r*Math.PI/180);x+=p.x*sc*co-p.y*sc*si;y+=p.x*sc*si+p.y*sc*co;r+=p.rot;sc*=p.scale});return{x,y,r,sc}}
+draw=function(){ctx.clearRect(0,0,c.width,c.height);if(!transparent){ctx.fillStyle=el('bg').value;ctx.fillRect(0,0,c.width,c.height)}ctx.save();ctx.translate(c.width/2,c.height/2);
+const drawn=new Set();
+function paint(i){if(drawn.has(i))return;drawn.add(i);let p=parts[i];if(!p.visible)return;let parent=p.parent??-1;if(parent>=0&&parts[parent]){paint(parent);ctx.save();ctx.translate(parts[parent].x,parts[parent].y);ctx.rotate(parts[parent].rot*Math.PI/180);ctx.scale(parts[parent].scale,parts[parent].scale);ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.scale(p.scale,p.scale);ctx.globalAlpha=p.opacity;ctx.drawImage(p.img,-p.px,-p.py);if(i===sel){ctx.strokeStyle='#78a0ff';ctx.setLineDash([6,4]);ctx.strokeRect(-p.px-2,-p.py-2,p.img.width+4,p.img.height+4);ctx.setLineDash([]);ctx.fillStyle='#ffd66b';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill()}ctx.restore()}else{ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.scale(p.scale,p.scale);ctx.globalAlpha=p.opacity;ctx.drawImage(p.img,-p.px,-p.py);if(i===sel){ctx.strokeStyle='#78a0ff';ctx.setLineDash([6,4]);ctx.strokeRect(-p.px-2,-p.py-2,p.img.width+4,p.img.height+4);ctx.setLineDash([]);ctx.fillStyle='#ffd66b';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill()}ctx.restore()}}
+parts.forEach((p,i)=>{if((p.parent??-1)<0)paint(i)});parts.forEach((p,i)=>paint(i));ctx.restore()};
+el('attachPart').onclick=()=>{if(sel<0)return;let par=el('parentSelect').value;if(par===""){parts[sel].parent=-1}else{let pi=Number(par);if(pi===sel)return;let w=worldTransform(sel),pw=worldTransform(pi);parts[sel].x=w.x-pw.x;parts[sel].y=w.y-pw.y;parts[sel].parent=pi}refreshParentMenu();draw()};
+el('detachPart').onclick=()=>{if(sel<0)return;let w=worldTransform(sel);parts[sel].x=w.x;parts[sel].y=w.y;parts[sel].rot=w.r;parts[sel].scale=w.sc;parts[sel].parent=-1;refreshParentMenu();draw()};
+document.querySelectorAll('[data-pivot]').forEach(b=>b.onclick=()=>{if(sel<0)return;let p=parts[sel],v=b.dataset.pivot;switch(v){case'top':p.px=p.img.width/2;p.py=0;break;case'bottom':p.px=p.img.width/2;p.py=p.img.height;break;case'left':p.px=0;p.py=p.img.height/2;break;case'right':p.px=p.img.width;p.py=p.img.height/2;break;case'shoulder':p.px=p.img.width*.18;p.py=p.img.height*.15;break;case'elbow':p.px=p.img.width*.5;p.py=p.img.height*.12;break;case'wrist':p.px=p.img.width*.5;p.py=p.img.height*.92;break;case'hip':p.px=p.img.width*.5;p.py=p.img.height*.12;break;case'knee':p.px=p.img.width*.5;p.py=p.img.height*.18;break;case'ankle':p.px=p.img.width*.5;p.py=p.img.height*.92;break}syncControls();draw()});
+const priorExport=el('exportJson').onclick;
+el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'4.2',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},parts:parts.map(({img,...p})=>({...p,src:null})),keyframes:keys};download(JSON.stringify(data,null,2),'stickmotion-rig-v4.2.json','application/json')};
+const priorImport=el('jsonFile').onchange;
+el('jsonFile').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let d=JSON.parse(await f.text());alert('Rig configuration loaded. Imported art files are not embedded; please re-import images.');parts=d.parts||[];parts.forEach(p=>p.parent=p.parent??-1);keys=d.keyframes||{};c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);refreshParentMenu();renderFrames();draw()}catch(err){alert('Invalid rig JSON')}};
+refreshParentMenu();</script></body></html>
