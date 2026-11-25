@@ -957,3 +957,39 @@ test('full episode export preserves imported audio and scene sound effects', asy
   expect(await download.failure()).toBeNull();
   expect(errors).toEqual([]);
 });
+
+test('dialogue audio is saved across reloads and included in project downloads', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.evaluate(() => {
+    const sampleRate = 8000, samples = 8000;
+    const bytes = new ArrayBuffer(44 + samples * 2), view = new DataView(bytes);
+    const write = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
+    write(0, 'RIFF'); view.setUint32(4, 36 + samples * 2, true); write(8, 'WAVE');
+    write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true); write(36, 'data'); view.setUint32(40, samples * 2, true);
+    for (let i = 0; i < samples; i++) view.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * 440 * i / sampleRate) * 5000), true);
+    const input = document.querySelector('#audioFile'), transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], 'saved-dialogue.wav', { type: 'audio/wav' }));
+    input.files = transfer.files; input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await expect(page.locator('#audioStatus')).toContainText('saved-dialogue.wav');
+  await expect(page.locator('#audioStatus')).toContainText('saved');
+  await page.reload();
+  await expect(page.locator('#audioStatus')).toContainText('saved-dialogue.wav · restored');
+  const restored = await page.evaluate(() => ({ src: document.querySelector('#dialogueAudio').src, name: document.querySelector('#audioStatus').textContent }));
+  expect(restored.src).toContain('blob:');
+  expect(restored.name).toContain('saved-dialogue.wav');
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#saveProject').click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  let json = '';
+  for await (const chunk of stream) json += chunk.toString('utf8');
+  const project = JSON.parse(json);
+  expect(project.dialogueAudio.name).toBe('saved-dialogue.wav');
+  expect(project.dialogueAudio.data).toMatch(/^data:audio\/wav;base64,/);
+  expect(errors).toEqual([]);
+});
