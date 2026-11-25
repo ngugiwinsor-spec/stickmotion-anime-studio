@@ -1010,6 +1010,7 @@ el('exportVideo').onclick=async()=>{
  const outputCtx=outputCanvas.getContext('2d',{alpha:false});
  const originalAudioTime=audioEl.currentTime;
  let rendererFrame=null,renderer=null,probeVideo=null,downloadUrl=null;
+ window.__stickMotionExporting=true;
  try{
   videoStatus('Preparing isolated scene renderer…');
   rendererFrame=document.createElement('iframe');
@@ -1094,6 +1095,7 @@ el('exportVideo').onclick=async()=>{
   console.error('Single-scene video export failed:',err);
   videoStatus('Export failed: '+(err?.message||String(err)));
  }finally{
+  window.__stickMotionExporting=false;
   audioEl.pause();
   if(Number.isFinite(originalAudioTime))audioEl.currentTime=originalAudioTime;
   if(probeVideo){probeVideo.pause();probeVideo.removeAttribute('src');probeVideo.load()}
