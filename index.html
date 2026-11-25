@@ -54,7 +54,13 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <label>Mouth open</label><input id="mouthOpen" type="range" min="0" max="1" step=".05" value=".15">
 <label>Eyebrow angle</label><input id="browAngle" type="range" min="-1" max="1" step=".05" value="0">
 <div class="row"><button id="faceCapture" class="primary">Capture face key</button><button id="faceReset">Reset face</button></div>
-<div class="hint">Select the head artwork layer to attach a live facial overlay. Gaze, blinking, expression and mouth movement can be captured on the timeline. The overlay is editable and does not alter your source artwork.</div></section></aside></main>
+<div class="hint">Select the head artwork layer to attach a live facial overlay. Gaze, blinking, expression and mouth movement can be captured on the timeline. The overlay is editable and does not alter your source artwork.</div></section><section id="cameraPanel"><h3>Camera & cinematics · v4.5</h3>
+<label>Camera X</label><input id="camX" type="range" min="-960" max="960" value="0">
+<label>Camera Y</label><input id="camY" type="range" min="-540" max="540" value="0">
+<label>Zoom</label><input id="camZoom" type="range" min=".25" max="3" step=".01" value="1">
+<label>Camera rotation</label><input id="camRot" type="range" min="-180" max="180" value="0">
+<div class="row"><button id="cameraCenter">Reset camera</button><button id="cameraCapture" class="primary">Capture camera key</button></div>
+<div class="hint">Animate camera position, zoom and rotation using the same frame timeline. Camera moves affect the entire scene and are included in project JSON.</div></section></aside></main>
 <script>
 const c=document.getElementById('stage'),ctx=c.getContext('2d');let parts=[],sel=-1,transparent=false,keys={},frame=0,playing=false,playTimer=null;
 const el=id=>document.getElementById(id);
@@ -171,5 +177,26 @@ el('attachPart').onclick=()=>{
  parts[sel].x=localX;parts[sel].y=localY;parts[sel].parent=pi;
  refreshParentMenu();draw()
 };
+
+
+/* v4.5 camera animation */
+const camera={x:0,y:0,zoom:1,rot:0},cameraKeys={};
+function syncCamera(){el('camX').value=camera.x;el('camY').value=camera.y;el('camZoom').value=camera.zoom;el('camRot').value=camera.rot}
+[['camX','x'],['camY','y'],['camZoom','zoom'],['camRot','rot']].forEach(([id,k])=>el(id).oninput=e=>{camera[k]=Number(e.target.value);draw()});
+el('cameraCenter').onclick=()=>{Object.assign(camera,{x:0,y:0,zoom:1,rot:0});syncCamera();draw()};
+function cameraSnapshot(){return {...camera}}
+el('cameraCapture').onclick=()=>{cameraKeys[frame]=cameraSnapshot();renderFrames()};
+const captureBeforeCamera=el('capture').onclick;
+el('capture').onclick=()=>{captureBeforeCamera();cameraKeys[frame]=cameraSnapshot();renderFrames()};
+const applyBeforeCamera=applyKey;
+applyKey=function(f){applyBeforeCamera(f);let ks=Object.keys(cameraKeys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let a=ks.filter(k=>k<=f).pop(),b=ks.find(k=>k>=f);if(a===undefined)a=ks[0];if(b===undefined)b=ks[ks.length-1];let t=a===b?0:(f-a)/(b-a),mode=el('easing').value;if(mode==='ease')t=t*t*(3-2*t);else if(mode==='easeOut')t=1-(1-t)*(1-t);else if(mode==='easeIn')t=t*t;else if(mode==='hold')t=0;['x','y','zoom','rot'].forEach(k=>camera[k]=cameraKeys[a][k]+(cameraKeys[b][k]-cameraKeys[a][k])*t);syncCamera()};
+const drawBeforeCamera=draw;
+draw=function(){ctx.save();ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);ctx.translate(-c.width/2,-c.height/2);ctx.restore();drawBeforeCameraWithCamera()};
+function drawBeforeCameraWithCamera(){ctx.save();ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);ctx.translate(-c.width/2,-c.height/2);drawBeforeCamera();ctx.restore()}
+const exportBeforeCamera=el('exportJson').onclick;
+el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'4.5',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},camera,cameraKeys,parts:parts.map(({img,...p})=>({...p,src:null})),keyframes:keys,faceKeys};download(JSON.stringify(data,null,2),'stickmotion-anime-studio-v4.5.json','application/json')};
+const importBeforeCamera=el('jsonFile').onchange;
+el('jsonFile').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let d=JSON.parse(await file.text());parts=(d.parts||[]).map(p=>({...p,img:null,parent:p.parent??-1}));keys=d.keyframes||{};Object.assign(faceKeys,d.faceKeys||{});Object.assign(camera,d.camera||{});Object.assign(cameraKeys,d.cameraKeys||{});c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);refreshParentMenu();syncCamera();renderFrames();draw();alert('Project settings loaded. Re-import source artwork to restore image layers.')}catch(err){alert('Invalid project JSON')}};
+syncCamera();
 
 </script></body></html>
