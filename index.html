@@ -1054,11 +1054,13 @@ el('exportEpisodeVideo').onclick=async()=>{
   videoStatus('Verifying the finished WebM…');
   downloadUrl=URL.createObjectURL(blob);
   probeVideo=document.createElement('video');
-  probeVideo.preload='auto';probeVideo.muted=true;probeVideo.src=downloadUrl;
-  await new Promise((resolve,reject)=>{
-   probeVideo.onloadedmetadata=resolve;
-   probeVideo.onerror=()=>reject(new Error('The exported WebM could not be opened by the browser.'));
+  probeVideo.preload='auto';probeVideo.muted=true;
+  const metadataReady=new Promise((resolve,reject)=>{
+   probeVideo.addEventListener('loadedmetadata',resolve,{once:true});
+   probeVideo.addEventListener('error',()=>reject(new Error('The exported WebM could not be opened by the browser.')),{once:true});
   });
+  probeVideo.src=downloadUrl;
+  await metadataReady;
   if(!probeVideo.videoWidth||!probeVideo.videoHeight)throw new Error('The exported WebM has no decodable video track.');
   if(Math.abs(probeVideo.duration-expectedDuration)>Math.max(.15,2/fps))throw new Error('The exported video duration does not match the episode timeline.');
   const seeked=new Promise((resolve,reject)=>{
