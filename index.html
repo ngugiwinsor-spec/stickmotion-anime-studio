@@ -406,9 +406,16 @@ el('exportEpisodeVideo').onclick=async()=>{
  let recorder=null,prevFrame=null,rendered=0;
  const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  const waitImages=async()=>{const imgs=parts.map(p=>p.img).filter(Boolean);await Promise.all(imgs.map(im=>im.complete?Promise.resolve():new Promise(res=>{im.onload=res;im.onerror=res})))};
+ let loadedRenderSceneId=null;
+ const loadRenderScene=async sc=>{
+  if(loadedRenderSceneId===sc.id)return;
+  loadProjectState(sc.project);
+  await waitImages();
+  loadedRenderSceneId=sc.id;
+ };
  const renderSceneAt=async(sc,f)=>{
-  loadProjectState(sc.project);await waitImages();
-  frame=Math.min(120,f);el('frame').value=frame;el('frameLabel').textContent=frame;
+  await loadRenderScene(sc);
+  frame=Math.max(0,Math.min(120,f));el('frame').value=frame;el('frameLabel').textContent=frame;
   applyKey(frame);draw();
  };
  try{
