@@ -340,7 +340,7 @@ function refreshIKMenus(){
 }
 function ikNameHasSide(name,side){
  const n=String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
- const tokens=n.split(/\\s+/);
+ const tokens=n.split(/\s+/);
  const aliases=side==='left'?['left','l']:['right','r'];
  return tokens.some(t=>aliases.includes(t));
 }
