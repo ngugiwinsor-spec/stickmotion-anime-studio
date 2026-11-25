@@ -316,4 +316,10 @@ el('sceneFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;
 ['sceneDuration','sceneTransition','transitionDuration'].forEach(id=>el(id).onchange=()=>{saveActiveScene();persistScenes()});
 try{const d=JSON.parse(localStorage.getItem(SCENE_KEY)||'null');if(d?.scenes?.length){episodeScenes=d.scenes;activeSceneId=d.activeSceneId||episodeScenes[0].id;const n=episodeScenes.find(x=>x.id===activeSceneId)||episodeScenes[0];activeSceneId=n.id;loadProjectState(n.project);el('sceneDuration').value=n.duration||5;el('sceneTransition').value=n.transition||'cut';el('transitionDuration').value=n.transitionDuration??.5}else{const n={id:makeSceneId(),name:'Scene 1',...captureScene()};episodeScenes=[n];activeSceneId=n.id;persistScenes()}refreshSceneSelect()}catch(e){const n={id:makeSceneId(),name:'Scene 1',...captureScene()};episodeScenes=[n];activeSceneId=n.id;refreshSceneSelect()}
 
+
+/* Keep the active scene snapshot in the episode autosave as edits occur. */
+let sceneAutosaveTimer=null;
+const drawBeforeSceneAutosave=draw;
+draw=function(){drawBeforeSceneAutosave();if(activeSceneId){clearTimeout(sceneAutosaveTimer);sceneAutosaveTimer=setTimeout(()=>{saveActiveScene();persistScenes()},1200)}};
+
 </script></body></html>
