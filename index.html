@@ -951,7 +951,7 @@ el('exportEpisodeVideo').onclick=async()=>{
  const savedTransition=el('sceneTransition').value,savedTransitionDuration=el('transitionDuration').value;
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
  const totalFrames=episodeScenes.reduce((n,sc)=>n+Math.max(1,Math.ceil((Number(sc.duration)||5)*fps)),0);
- const stream=c.captureStream(0),videoTrack=stream.getVideoTracks()[0],chunks=[];
+ const stream=c.captureStream(0),videoTrack=stream.getVideoTracks()[0],chunks=[];let requestedFrames=0,recorderDataEvents=0;
  sfxInit();if(sfxDestination)sfxDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
  let recorder=null,prevFrame=null,rendered=0;
  window.__stickMotionExporting=true;
@@ -974,7 +974,7 @@ el('exportEpisodeVideo').onclick=async()=>{
   const audioStream=audioEl.src&&typeof audioEl.captureStream==='function'?audioEl.captureStream():null;
   if(audioStream)audioStream.getAudioTracks().forEach(t=>stream.addTrack(t));
   recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:exportVideoBitrate()});
-  recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
+  recorder.ondataavailable=e=>{recorderDataEvents++;if(e.data?.size)chunks.push(e.data)};
   const finished=new Promise((resolve,reject)=>{recorder.onstop=resolve;recorder.onerror=e=>reject(e.error||new Error('Recording failed'))});
   recorder.start(250);
   if(sfxContext?.state==='suspended')await sfxContext.resume();
@@ -987,7 +987,6 @@ el('exportEpisodeVideo').onclick=async()=>{
    const previous=prevFrame;
    for(let f=0;f<count;f++){
     await renderSceneAt(sc,f);
-    if(videoTrack&&typeof videoTrack.requestFrame==='function')videoTrack.requestFrame();
     scheduleEpisodeSfx(sc.id,f,episodeSfxStart+rendered/fps);
     if(si>0&&f<transFrames&&previous){
      const progress=transFrames<=1?1:(f+1)/transFrames;
@@ -1002,6 +1001,7 @@ el('exportEpisodeVideo').onclick=async()=>{
       ctx.save();ctx.beginPath();ctx.rect(0,0,c.width*progress,c.height);ctx.clip();ctx.drawImage(temp,0,0);ctx.restore();
      }else ctx.drawImage(temp,0,0);
     }
+    if(videoTrack&&typeof videoTrack.requestFrame==='function'){videoTrack.requestFrame();requestedFrames++}
     rendered++;
     videoStatus('Episode render '+Math.round(rendered/totalFrames*100)+'% · Scene '+(si+1)+'/'+episodeScenes.length);
     await delay(Math.max(0,start+rendered*1000/fps-performance.now()));
@@ -1015,7 +1015,7 @@ el('exportEpisodeVideo').onclick=async()=>{
   await delay(250);
   recorder.stop();await finished;
   const blob=new Blob(chunks,{type:mime});
-  if(!blob.size)throw new Error('Empty episode video');
+  if(!blob.size)throw new Error('Empty episode video (chunks='+chunks.length+', dataEvents='+recorderDataEvents+', requestedFrames='+requestedFrames+', track='+videoTrack?.readyState+', mime='+recorder.mimeType+')');
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download='stickmotion-full-episode.webm';a.click();
   setTimeout(()=>URL.revokeObjectURL(url),30000);
