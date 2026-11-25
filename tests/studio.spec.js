@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.6');
+  await expect(page.locator('.badge')).toContainText('v7.7');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -239,5 +239,25 @@ test('viseme dialogue adds mouth-shape keys and approximate word timing', async 
   state = await page.evaluate(() => Object.values(window.__stickMotionFaceKeys).filter(k => k.viseme).length);
   expect(state).toBeGreaterThan(1);
   await expect(page.locator('#visemeStatus')).toContainText('not speech recognition');
+  expect(errors).toEqual([]);
+});
+
+
+test('sound effects cues are added at timeline frames and can be previewed', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#sfxType').selectOption('impact');
+  await page.locator('#addSfxCue').click();
+  await page.locator('#frame').fill('18');
+  await page.locator('#frame').dispatchEvent('input');
+  await page.locator('#sfxType').selectOption('whoosh');
+  await page.locator('#addSfxCue').click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[0,'impact'],[18,'whoosh']]);
+  await expect(page.locator('#sfxStatus')).toContainText('2 cues');
+  await page.locator('#previewSfx').click();
+  await expect(page.locator('#sfxStatus')).toContainText('Previewing whoosh');
+  await page.locator('#clearSfxCues').click();
+  await expect(page.locator('#sfxStatus')).toContainText('0 cues');
   expect(errors).toEqual([]);
 });
