@@ -958,6 +958,46 @@ test('full episode export preserves imported audio and scene sound effects', asy
   expect(errors).toEqual([]);
 });
 
+
+test('audio-driven lip sync opens the mouth for loud dialogue and relaxes during silence', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  const duration = await page.evaluate(async () => {
+    const sampleRate = 22050, samples = sampleRate * 2;
+    const bytes = new ArrayBuffer(44 + samples * 2), view = new DataView(bytes);
+    const write = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
+    write(0, 'RIFF'); view.setUint32(4, 36 + samples * 2, true); write(8, 'WAVE');
+    write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true); write(36, 'data'); view.setUint32(40, samples * 2, true);
+    for (let i = 0; i < samples; i++) {
+      const amplitude = i < sampleRate ? 0 : 0.35;
+      view.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * 220 * i / sampleRate) * amplitude * 32767), true);
+    }
+    const audio = document.querySelector('#dialogueAudio');
+    const ready = new Promise((resolve, reject) => {
+      audio.addEventListener('loadedmetadata', resolve, { once: true });
+      audio.addEventListener('error', () => reject(new Error('Synthetic lip-sync audio failed to load')), { once: true });
+    });
+    audio.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+    audio.load();
+    await ready;
+    return audio.duration;
+  });
+  expect(duration).toBeCloseTo(2, 1);
+  await page.locator('#autoLip').click();
+  await page.locator('#audioPlay').click();
+  await page.waitForFunction(() => document.querySelector('#dialogueAudio').currentTime > 0.25);
+  const quietMouth = await page.evaluate(() => face.mouth);
+  await page.waitForFunction(() => document.querySelector('#dialogueAudio').currentTime > 1.35);
+  const loudMouth = await page.evaluate(() => face.mouth);
+  expect(loudMouth).toBeGreaterThan(quietMouth + 0.2);
+  expect(loudMouth).toBeGreaterThan(0.35);
+  await page.locator('#audioStop').click();
+  expect(errors).toEqual([]);
+});
+
 test('dialogue audio is saved across reloads and included in project downloads', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -1054,6 +1094,35 @@ test('saved project files reopen imported character artwork with the image intac
   expect(errors).toEqual([]);
 });
 
+
+
+test('layer visibility and transform controls support undo and redo', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.waitForFunction(() => parts.length === 10);
+
+  await page.locator('#layers .layer').first().locator('.eye').click();
+  expect(await page.evaluate(() => parts[0].visible)).toBe(false);
+  await page.locator('#undo').click();
+  expect(await page.evaluate(() => parts[0].visible)).toBe(true);
+  await page.locator('#redo').click();
+  expect(await page.evaluate(() => parts[0].visible)).toBe(false);
+
+  await page.evaluate(() => select(0));
+  await page.locator('#scale').evaluate(input => {
+    input.value = '1.7';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(await page.evaluate(() => parts[0].scale)).toBeCloseTo(1.7, 2);
+  await page.locator('#undo').click();
+  expect(await page.evaluate(() => parts[0].scale)).toBeCloseTo(1, 2);
+  await page.locator('#redo').click();
+  expect(await page.evaluate(() => parts[0].scale)).toBeCloseTo(1.7, 2);
+  expect(errors).toEqual([]);
+});
 
 test('rig hierarchy preserves world transforms, blocks cycles, and remaps layer references', async ({ page }) => {
   const errors = [];
