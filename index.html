@@ -337,7 +337,7 @@ el('generateMotion').onclick=()=>{
  };
  const frames=[0,15,30,45,60,75,90,105,120];
  const cycles={idle:{arm:2,leg:1,bounce:2,head:1},walk:{arm:24,leg:30,bounce:5,head:2},run:{arm:38,leg:46,bounce:9,head:3},jump:{arm:35,leg:24,bounce:0,head:2}}[preset];
- const sideSign=x=>/left|_l\\b|\\bl\\b/.test(x.name)?-1:/right|_r\\b|\\br\\b/.test(x.name)?1:(x.i%2===0?-1:1);
+ const sideSign=x=>/left|_l$|^l_/.test(x.name)?-1:/right|_r$|^r_/.test(x.name)?1:(x.i%2===0?-1:1);
  frames.forEach((f,fi)=>{
   const phase=(f/30)*Math.PI*2;
   parts.forEach((p,i)=>{const b=base[i];p.x=b.x;p.y=b.y;p.rot=b.rot;p.scale=b.scale;p.opacity=b.opacity});
