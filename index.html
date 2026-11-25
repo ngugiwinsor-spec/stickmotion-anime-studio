@@ -951,7 +951,7 @@ el('exportEpisodeVideo').onclick=async()=>{
  const savedTransition=el('sceneTransition').value,savedTransitionDuration=el('transitionDuration').value;
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
  const totalFrames=episodeScenes.reduce((n,sc)=>n+Math.max(1,Math.ceil((Number(sc.duration)||5)*fps)),0);
- const captureCanvas=document.createElement('canvas');captureCanvas.width=c.width;captureCanvas.height=c.height;const captureCtx=captureCanvas.getContext('2d');captureCtx.drawImage(c,0,0);const stream=captureCanvas.captureStream(fps),videoTrack=stream.getVideoTracks()[0],chunks=[];let requestedFrames=0,recorderDataEvents=0;
+ const captureCanvas=document.createElement('canvas');captureCanvas.width=c.width;captureCanvas.height=c.height;const captureCtx=captureCanvas.getContext('2d');captureCtx.drawImage(c,0,0);const stream=captureCanvas.captureStream(0),videoTrack=stream.getVideoTracks()[0],chunks=[];let requestedFrames=0,recorderDataEvents=0;
  sfxInit();if(sfxDestination)sfxDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
  let recorder=null,prevFrame=null,rendered=0;
  window.__stickMotionExporting=true;
