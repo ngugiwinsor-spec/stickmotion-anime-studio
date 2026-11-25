@@ -1095,6 +1095,35 @@ test('saved project files reopen imported character artwork with the image intac
 });
 
 
+
+test('layer visibility and transform controls support undo and redo', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.waitForFunction(() => parts.length === 10);
+
+  await page.locator('#layers .layer').first().locator('.eye').click();
+  expect(await page.evaluate(() => parts[0].visible)).toBe(false);
+  await page.locator('#undo').click();
+  expect(await page.evaluate(() => parts[0].visible)).toBe(true);
+  await page.locator('#redo').click();
+  expect(await page.evaluate(() => parts[0].visible)).toBe(false);
+
+  await page.evaluate(() => select(0));
+  await page.locator('#scale').evaluate(input => {
+    input.value = '1.7';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(await page.evaluate(() => parts[0].scale)).toBeCloseTo(1.7, 2);
+  await page.locator('#undo').click();
+  expect(await page.evaluate(() => parts[0].scale)).toBeCloseTo(1, 2);
+  await page.locator('#redo').click();
+  expect(await page.evaluate(() => parts[0].scale)).toBeCloseTo(1.7, 2);
+  expect(errors).toEqual([]);
+});
+
 test('rig hierarchy preserves world transforms, blocks cycles, and remaps layer references', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
