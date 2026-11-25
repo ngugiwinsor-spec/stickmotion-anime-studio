@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.20');
+  await expect(page.locator('.badge')).toContainText('v7.21');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -425,5 +425,26 @@ test('episode export scheduler keeps sound cues scoped to each scene', async ({ 
   expect(await page.evaluate(() => window.__stickMotionEpisodeSfxEvents)).toHaveLength(0);
   await page.evaluate(() => window.__stickMotionScheduleEpisodeSfx('next-export', 0, 20));
   expect(await page.evaluate(() => window.__stickMotionEpisodeSfxEvents.map(e => e.sceneId))).toEqual(['next-export']);
+  expect(errors).toEqual([]);
+});
+
+
+test('individual sound cues can be muted, persisted, and duplicated', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.getByRole('button', { name: 'Mute sound cue at frame 0' }).click();
+  await expect(page.getByRole('button', { name: 'Unmute sound cue at frame 0' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Preview sound cue at frame 0' }).click();
+  await expect(page.locator('#sfxStatus')).toHaveText('Sound cue is muted');
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  expect(saved.soundEffects[0].muted).toBe(true);
+  await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues[0].muted)).toBe(true);
+  await page.getByRole('button', { name: 'Duplicate sound cue at frame 0' }).click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.muted))).toEqual([true, true]);
+  await page.getByRole('button', { name: 'Unmute sound cue at frame 0' }).first().click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => c.muted))).toEqual([false, true]);
   expect(errors).toEqual([]);
 });
