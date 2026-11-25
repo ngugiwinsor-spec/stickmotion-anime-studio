@@ -985,83 +985,112 @@ try{const saved=JSON.parse(localStorage.getItem(MOTION_LIBRARY_KEY)||'[]');if(Ar
 refreshMotionLibrary();
 
  
-/* v4.9: real-time browser video rendering for the active scene */
-const videoStatus=msg=>{const n=el('videoStatus');if(n)n.textContent=msg};
-function exportVideoBitrate(){return Math.max(1000000,Math.min(24000000,Number(el('exportQuality')?.value)||8000000));}
-function supportedVideoMime(){
- const types=['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm'];
- return types.find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||'';
-}
+/* v9.0: deterministic single-scene WebM export using the same WebCodecs engine as episodes. */
 el('exportVideo').onclick=async()=>{
- const mime=supportedVideoMime();
- if(!c.captureStream||!window.MediaRecorder||!mime){
-  videoStatus('Video export unsupported in this browser');return;
- }
+ const Engine=window.StickMotionEpisodeExport;
+ if(!Engine||typeof Engine.encode!=='function'){videoStatus('The video export engine is unavailable. Reload the studio and try again.');return}
  if(playing){playing=false;if(playTimer!==null)cancelAnimationFrame(playTimer);playTimer=null;el('play').textContent='▶ Play'}
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
  const seconds=Math.max(1,Math.min(120,Number(el('sceneDuration').value)||5));
- const totalFrames=Math.ceil(seconds*fps);
- const originalFrame=frame,originalAudioTime=audioEl.currentTime;
- const stream=c.captureStream(0);
- const canvasTrack=stream.getVideoTracks()[0];
- if(!canvasTrack)throw new Error('The canvas did not provide a video track');
- let audioStream=null;
- sfxInit();if(sfxDestination)sfxDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
- window.__stickMotionExporting=true;
+ const frameCount=Math.max(1,Math.ceil(seconds*fps));
+ const snapshot=projectState();
+ const scene={project:snapshot,duration:seconds,soundEffects:snapshot.soundEffects||[]};
+ const width=Math.max(1,Math.min(3840,Number(snapshot.canvas?.width)||1280));
+ const height=Math.max(1,Math.min(3840,Number(snapshot.canvas?.height)||720));
+ const outputCanvas=document.createElement('canvas');
+ outputCanvas.width=width;outputCanvas.height=height;
+ const outputCtx=outputCanvas.getContext('2d',{alpha:false});
+ const originalAudioTime=audioEl.currentTime;
+ let rendererFrame=null,renderer=null,probeVideo=null,downloadUrl=null;
  try{
-  if(audioEl.src&&typeof audioEl.captureStream==='function'){
-   audioStream=audioEl.captureStream();
-   audioStream.getAudioTracks().forEach(t=>stream.addTrack(t));
-  }
-  const chunks=[];
-  const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:exportVideoBitrate()});
-  recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
-  const finished=new Promise((resolve,reject)=>{
-   recorder.onstop=resolve;recorder.onerror=e=>reject(e.error||new Error('Recording failed'));
+  videoStatus('Preparing isolated scene renderer…');
+  rendererFrame=document.createElement('iframe');
+  rendererFrame.title='Private single-scene export renderer';
+  rendererFrame.setAttribute('aria-hidden','true');
+  rendererFrame.style.cssText='position:fixed;left:-10000px;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+  const rendererUrl=new URL(location.href);
+  rendererUrl.searchParams.set('export-renderer','1');
+  const ready=new Promise((resolve,reject)=>{
+   rendererFrame.onload=resolve;
+   rendererFrame.onerror=()=>reject(new Error('Could not start the isolated scene renderer.'));
   });
-  recorder.start(250);
-  videoStatus('Rendering 0%');
-  if(audioStream&&audioEl.src){
-   const offset=Math.max(0,Number(el('audioOffset').value)||0);
-   audioEl.currentTime=Math.min(offset,audioEl.duration||offset);
-   await audioEl.play().catch(()=>{});
-  }
-  const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  const started=performance.now();
-  if(sfxContext?.state==='suspended')await sfxContext.resume();
-  const sfxExportStart=sfxContext?.currentTime||0;
-  for(let i=0;i<=totalFrames;i++){
-   frame=Math.min(120,i);
-   sfxAtFrame(frame,sfxExportStart+i/fps);
-   el('frame').value=frame;el('frameLabel').textContent=frame;
-   applyKey(frame);draw();renderFrames();
-   if(typeof canvasTrack.requestFrame==='function')canvasTrack.requestFrame();
-   videoStatus('Rendering '+Math.round(i/totalFrames*100)+'%');
-   if(i<totalFrames){
-    const target=started+(i+1)*1000/fps;
-    await delay(Math.max(0,target-performance.now()));
-   }
-  }
-  if(typeof canvasTrack.requestFrame==='function')canvasTrack.requestFrame();
-  await delay(100);
-  recorder.stop();
-  await finished;
-  const blob=new Blob(chunks,{type:mime});
-  if(!blob.size)throw new Error('The browser produced an empty video');
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='stickmotion-scene.webm';a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),30000);
-  videoStatus('Video exported · '+(blob.size/1048576).toFixed(1)+' MB');
+  rendererFrame.src=rendererUrl.href;
+  document.body.appendChild(rendererFrame);
+  await ready;
+  renderer=rendererFrame.contentWindow;
+  if(!renderer.__stickMotionExportRenderer||typeof renderer.__stickMotionLoadExportScene!=='function')throw new Error('The isolated scene renderer did not initialize.');
+  renderer.__stickMotionExporting=true;
+  await renderer.__stickMotionLoadExportScene(snapshot);
+
+  videoStatus('Preparing scene audio…');
+  const audioBuffer=audioEl.src?await Engine.decodeAudioUrl(audioEl.src):null;
+  const cues=Array.isArray(snapshot.soundEffects)?snapshot.soundEffects:[];
+  const hasSfx=cues.some(cue=>!cue.muted&&Number(cue.frame)>=0&&Number(cue.frame)<frameCount);
+  const audioBuffers=(audioBuffer||hasSfx)?Engine.mixEpisodeAudio({
+   audioBuffer,
+   audioOffset:Math.max(0,Number(el('audioOffset').value)||0),
+   scenes:[scene],
+   fps
+  }):null;
+  const renderFrame=async index=>{
+   const source=renderer.__stickMotionRenderExportFrame(index);
+   outputCtx.clearRect(0,0,width,height);
+   outputCtx.fillStyle=snapshot.canvas?.background||'#222b3c';
+   outputCtx.fillRect(0,0,width,height);
+   const scale=Math.min(width/source.width,height/source.height);
+   const drawWidth=source.width*scale,drawHeight=source.height*scale;
+   outputCtx.drawImage(source,(width-drawWidth)/2,(height-drawHeight)/2,drawWidth,drawHeight);
+  };
+  const blob=await Engine.encode({
+   canvas:outputCanvas,
+   fps,
+   frameCount,
+   bitrate:exportVideoBitrate(),
+   audioBuffers,
+   renderFrame,
+   onProgress:(progress,done,total)=>videoStatus('Encoding scene '+Math.round(progress*100)+'% · '+done+'/'+total+' frames')
+  });
+  videoStatus('Verifying the finished WebM…');
+  downloadUrl=URL.createObjectURL(blob);
+  probeVideo=document.createElement('video');
+  probeVideo.preload='auto';probeVideo.muted=true;
+  const metadataReady=new Promise((resolve,reject)=>{
+   probeVideo.addEventListener('loadedmetadata',resolve,{once:true});
+   probeVideo.addEventListener('error',()=>reject(new Error('The exported WebM could not be opened by the browser.')),{once:true});
+  });
+  probeVideo.src=downloadUrl;
+  await metadataReady;
+  if(!probeVideo.videoWidth||!probeVideo.videoHeight)throw new Error('The exported WebM has no decodable video track.');
+  const expectedDuration=frameCount/fps;
+  if(Math.abs(probeVideo.duration-expectedDuration)>Math.max(.15,2/fps))throw new Error('The exported video duration does not match the scene timeline.');
+  const seeked=new Promise((resolve,reject)=>{
+   probeVideo.addEventListener('seeked',resolve,{once:true});
+   probeVideo.addEventListener('error',()=>reject(new Error('The exported WebM could not seek to a decoded frame.')),{once:true});
+  });
+  probeVideo.currentTime=Math.min(.25,Math.max(0,probeVideo.duration/2));
+  await seeked;
+  const verifyCanvas=document.createElement('canvas');
+  verifyCanvas.width=probeVideo.videoWidth;verifyCanvas.height=probeVideo.videoHeight;
+  const verifyCtx=verifyCanvas.getContext('2d');
+  verifyCtx.drawImage(probeVideo,0,0);
+  const pixel=verifyCtx.getImageData(Math.floor(verifyCanvas.width/2),Math.floor(verifyCanvas.height/2),1,1).data;
+  if(pixel[3]!==255)throw new Error('The exported WebM did not decode a video frame.');
+  const MB=await Engine.loadMediabunny();
+  const input=new MB.Input({source:new MB.BlobSource(blob),formats:MB.ALL_FORMATS});
+  if(!await input.getPrimaryVideoTrack())throw new Error('The finished WebM is missing its video track.');
+  if((audioBuffer||hasSfx)&&!await input.getPrimaryAudioTrack())throw new Error('The finished WebM is missing its audio track.');
+  const link=document.createElement('a');
+  link.href=downloadUrl;link.download='stickmotion-scene.webm';link.click();
+  videoStatus('Video exported and verified · '+(blob.size/1048576).toFixed(1)+' MB');
  }catch(err){
   console.error('Single-scene video export failed:',err);
   videoStatus('Export failed: '+(err?.message||String(err)));
  }finally{
-  window.__stickMotionExporting=false;
   audioEl.pause();
-  if(audioEl.src&&Number.isFinite(originalAudioTime))audioEl.currentTime=originalAudioTime;
-  frame=originalFrame;el('frame').value=frame;el('frameLabel').textContent=frame;
-  applyKey(frame);draw();renderFrames();
-  stream.getTracks().forEach(t=>t.stop());if(sfxDestination)sfxDestination.stream.getTracks().forEach(t=>t.stop());if(sfxDestination)sfxDestination.stream.getTracks().forEach(t=>t.stop());
+  if(Number.isFinite(originalAudioTime))audioEl.currentTime=originalAudioTime;
+  if(probeVideo){probeVideo.pause();probeVideo.removeAttribute('src');probeVideo.load()}
+  if(downloadUrl)setTimeout(()=>URL.revokeObjectURL(downloadUrl),30000);
+  if(rendererFrame)rendererFrame.remove();
  }
 };
 
