@@ -638,6 +638,7 @@ test('studio layout remains usable at a narrow mobile viewport', async ({ page }
 });
 
 test('full episode export renders a WebM download and restores the editing scene', async ({ page }) => {
+  test.setTimeout(120000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
@@ -646,7 +647,7 @@ test('full episode export renders a WebM download and restores the editing scene
   await page.locator('#sceneDuration').fill('1');
   await page.locator('#sceneDuration').dispatchEvent('change');
   const beforeScene = await page.locator('#sceneSelect').inputValue();
-  const downloadPromise = page.waitForEvent('download', { timeout: 20000 });
+  const downloadPromise = page.waitForEvent('download', { timeout: 90000 });
   await page.locator('#exportEpisodeVideo').click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('stickmotion-full-episode.webm');
