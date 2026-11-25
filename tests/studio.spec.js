@@ -1013,3 +1013,43 @@ test('imported character artwork autosaves and survives a browser reload', async
   expect(restored).toEqual({ name: 'character-part.png', width: 1, height: 1 });
   expect(errors).toEqual([]);
 });
+
+test('saved project files reopen imported character artwork with the image intact', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto('/');
+  await page.locator('#files').setInputFiles({
+    name: 'roundtrip-character.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=', 'base64')
+  });
+  await page.waitForFunction(() => typeof parts !== 'undefined' && parts.length === 1 && parts[0].img?.complete && parts[0].img.naturalWidth === 1);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#saveProject').click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  let json = '';
+  for await (const chunk of stream) json += chunk.toString('utf8');
+  const project = JSON.parse(json);
+  expect(project.parts).toHaveLength(1);
+  expect(project.parts[0].name).toBe('roundtrip-character.png');
+  expect(project.parts[0].image).toMatch(/^data:image\/png;base64,/);
+
+  await page.locator('#reset').click();
+  await page.waitForFunction(() => parts.length === 0);
+  await page.locator('#projectFile').setInputFiles({
+    name: 'stickmotion-project.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(json)
+  });
+  await page.waitForFunction(() => parts.length === 1 && parts[0].name === 'roundtrip-character.png' && parts[0].img?.complete && parts[0].img.naturalWidth === 1);
+  const reopened = await page.evaluate(() => ({
+    name: parts[0].name,
+    width: parts[0].img.naturalWidth,
+    height: parts[0].img.naturalHeight,
+    imageData: parts[0].img.src.startsWith('data:image/png;base64,')
+  }));
+  expect(reopened).toEqual({ name: 'roundtrip-character.png', width: 1, height: 1, imageData: true });
+  expect(errors).toEqual([]);
+});
