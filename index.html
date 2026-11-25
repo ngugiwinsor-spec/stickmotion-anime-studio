@@ -744,6 +744,7 @@ el('exportVideo').onclick=async()=>{
  const originalFrame=frame,originalAudioTime=audioEl.currentTime;
  const stream=c.captureStream(fps);
  let audioStream=null;
+ window.__stickMotionExporting=true;
  try{
   if(audioEl.src&&typeof audioEl.captureStream==='function'){
    audioStream=audioEl.captureStream();
@@ -786,6 +787,7 @@ el('exportVideo').onclick=async()=>{
   if(typeof recorder!=='undefined'&&recorder.state!=='inactive')recorder.stop();
   videoStatus('Export failed — try a shorter scene');
  }finally{
+  window.__stickMotionExporting=false;
   audioEl.pause();
   if(audioEl.src&&Number.isFinite(originalAudioTime))audioEl.currentTime=originalAudioTime;
   frame=originalFrame;el('frame').value=frame;el('frameLabel').textContent=frame;
@@ -808,6 +810,7 @@ el('exportEpisodeVideo').onclick=async()=>{
  const totalFrames=episodeScenes.reduce((n,sc)=>n+Math.max(1,Math.ceil((Number(sc.duration)||5)*fps)),0);
  const stream=c.captureStream(fps),chunks=[];
  let recorder=null,prevFrame=null,rendered=0;
+ window.__stickMotionExporting=true;
  const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  const waitImages=async()=>{const imgs=parts.map(p=>p.img).filter(Boolean);await Promise.all(imgs.map(im=>im.complete?Promise.resolve():new Promise(res=>{im.onload=res;im.onerror=res})))};
  let loadedRenderSceneId=null;
@@ -869,6 +872,7 @@ el('exportEpisodeVideo').onclick=async()=>{
   if(recorder&&recorder.state!=='inactive')recorder.stop();
   videoStatus('Episode export failed — check scene artwork and try again');
  }finally{
+  window.__stickMotionExporting=false;
   audioEl.pause();
   activeSceneId=savedSceneId;
   loadProjectState(savedState);
@@ -1040,7 +1044,7 @@ el('onionMode').onchange=()=>draw();
 const drawBeforeOnionSkin=draw;
 draw=function(){
  drawBeforeOnionSkin();
- if(!el('onionSkin').checked||sel<0||!parts[sel]?.img)return;
+ if(window.__stickMotionExporting||!el('onionSkin').checked||sel<0||!parts[sel]?.img)return;
  const frameKeys=Object.keys(keys).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
  const previous=frameKeys.filter(k=>k<frame).pop();
  const next=frameKeys.find(k=>k>frame);
