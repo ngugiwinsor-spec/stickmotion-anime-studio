@@ -141,7 +141,7 @@ draw=function(){
 /* Draw each rig part in its complete world transform; this supports nested parent chains. */
 ctx.clearRect(0,0,c.width,c.height);if(!transparent){ctx.fillStyle=el('bg').value;ctx.fillRect(0,0,c.width,c.height)}
 ctx.save();ctx.translate(c.width/2,c.height/2);ctx.translate(camera.x,camera.y);ctx.rotate(camera.rot*Math.PI/180);ctx.scale(camera.zoom,camera.zoom);
-parts.forEach((p,i)=>{if(!p.visible||!p.img)return;let w=worldTransform(i);ctx.save();ctx.translate(w.x,w.y);ctx.rotate(w.r*Math.PI/180);ctx.scale(w.sc,w.sc);ctx.globalAlpha=p.opacity;ctx.drawImage(p.img,-p.px,-p.py);
+parts.forEach((p,i)=>{if(!p.img||!effectivelyVisible(i))return;let w=worldTransform(i);ctx.save();ctx.translate(w.x,w.y);ctx.rotate(w.r*Math.PI/180);ctx.scale(w.sc,w.sc);ctx.globalAlpha=worldOpacity(i);ctx.drawImage(p.img,-p.px,-p.py);
 if(i===sel){ctx.strokeStyle='#78a0ff';ctx.setLineDash([6,4]);ctx.strokeRect(-p.px-2,-p.py-2,p.img.width+4,p.img.height+4);ctx.setLineDash([]);ctx.fillStyle='#ffd66b';ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill()}ctx.restore()});
 /* Facial overlay is anchored to the selected artwork layer and follows its full rig transform. */
 if(sel>=0&&parts[sel]?.img){let p=parts[sel],w=worldTransform(sel),iw=p.img.width,ih=p.img.height;
@@ -196,6 +196,34 @@ el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'
 const importBeforeCamera=el('jsonFile').onchange;
 el('jsonFile').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let d=JSON.parse(await file.text());parts=(d.parts||[]).map(p=>({...p,img:null,parent:p.parent??-1}));keys=d.keyframes||{};Object.assign(faceKeys,d.faceKeys||{});Object.assign(camera,d.camera||{});Object.assign(cameraKeys,d.cameraKeys||{});c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);refreshParentMenu();syncCamera();renderFrames();draw();alert('Project settings loaded. Re-import source artwork to restore image layers.')}catch(err){alert('Invalid project JSON')}};
 syncCamera();
+
+/* v4.6.1: preserve rig links when layers are reordered or removed */
+function effectivelyVisible(i){let guard=new Set();while(i>=0&&i<parts.length&&!guard.has(i)){guard.add(i);if(!parts[i].visible)return false;i=parts[i].parent??-1}return true}
+function worldOpacity(i){let alpha=1,guard=new Set();while(i>=0&&i<parts.length&&!guard.has(i)){guard.add(i);alpha*=Number(parts[i].opacity??1);i=parts[i].parent??-1}return alpha}
+function reorderParts(from,to){
+ if(from<0||to<0||from>=parts.length||to>=parts.length||from===to)return;
+ const parentObjects=parts.map(p=>p.parent>=0?parts[p.parent]:null);
+ const moved=parts.splice(from,1)[0];parts.splice(to,0,moved);
+ parts.forEach((p,i)=>{const parent=parentObjects[i];p.parent=parent?parts.indexOf(parent):-1});
+ sel=to;renderLayers();syncControls();refreshParentMenu();draw();pushHistory();
+}
+el('up').onclick=()=>{if(sel>0)reorderParts(sel,sel-1)};
+el('down').onclick=()=>{if(sel>=0&&sel<parts.length-1)reorderParts(sel,sel+1)};
+el('remove').onclick=()=>{
+ if(sel<0)return;
+ const removed=parts[sel],removedParent=removed.parent??-1;
+ const childWorlds=parts.map((p,i)=>p.parent===sel?{i,w:worldTransform(i)}:null).filter(Boolean);
+ const parentWorld=removedParent>=0?worldTransform(removedParent):{x:0,y:0,r:0,sc:1};
+ childWorlds.forEach(({i,w})=>{
+  const dx=w.x-parentWorld.x,dy=w.y-parentWorld.y,ang=-parentWorld.r*Math.PI/180,scale=parentWorld.sc||1;
+  parts[i].x=(dx*Math.cos(ang)-dy*Math.sin(ang))/scale;
+  parts[i].y=(dx*Math.sin(ang)+dy*Math.cos(ang))/scale;
+  parts[i].rot=w.r-parentWorld.r;parts[i].scale=w.sc/scale;parts[i].parent=removedParent;
+ });
+ parts.splice(sel,1);
+ parts.forEach(p=>{if(p.parent>sel)p.parent--;else if(p.parent===sel)p.parent=-1});
+ sel=Math.min(sel,parts.length-1);renderLayers();syncControls();refreshParentMenu();draw();pushHistory()
+};
 
 /* v4.6: project persistence, autosave, undo/redo */
 const PROJECT_KEY='stickmotion-anime-studio-project-v1';
