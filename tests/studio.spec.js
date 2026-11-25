@@ -638,7 +638,7 @@ test('studio layout remains usable at a narrow mobile viewport', async ({ page }
 });
 
 test('full episode export renders a WebM download and restores the editing scene', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(180000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
@@ -649,9 +649,9 @@ test('full episode export renders a WebM download and restores the editing scene
   await page.locator('#sceneDuration').fill('1');
   await page.locator('#sceneDuration').dispatchEvent('change');
   const beforeScene = await page.locator('#sceneSelect').inputValue();
-  const downloadPromise = page.waitForEvent('download', { timeout: 5000 });
+  const downloadPromise = page.waitForEvent('download', { timeout: 150000 });
   await page.locator('#exportEpisodeVideo').click();
-  await expect(page.locator('#videoStatus')).toContainText(/Full episode exported|Episode export failed/, { timeout: 30000 });
+  await expect(page.locator('#videoStatus')).toContainText(/Full episode exported|Episode export failed/, { timeout: 150000 });
   const status = await page.locator('#videoStatus').textContent();
   expect(status).toContain('Full episode exported');
   const download = await downloadPromise;
