@@ -1061,11 +1061,12 @@ el('exportEpisodeVideo').onclick=async()=>{
   });
   if(!probeVideo.videoWidth||!probeVideo.videoHeight)throw new Error('The exported WebM has no decodable video track.');
   if(Math.abs(probeVideo.duration-expectedDuration)>Math.max(.15,2/fps))throw new Error('The exported video duration does not match the episode timeline.');
-  probeVideo.currentTime=Math.min(.5,Math.max(0,probeVideo.duration/2));
-  await new Promise((resolve,reject)=>{
-   probeVideo.onseeked=resolve;
-   probeVideo.onerror=()=>reject(new Error('The exported WebM could not seek to a decoded frame.'));
+  const seeked=new Promise((resolve,reject)=>{
+   probeVideo.addEventListener('seeked',resolve,{once:true});
+   probeVideo.addEventListener('error',()=>reject(new Error('The exported WebM could not seek to a decoded frame.')),{once:true});
   });
+  probeVideo.currentTime=Math.min(.5,Math.max(0,probeVideo.duration/2));
+  await seeked;
   const verifyCanvas=document.createElement('canvas');
   verifyCanvas.width=probeVideo.videoWidth;verifyCanvas.height=probeVideo.videoHeight;
   const verifyCtx=verifyCanvas.getContext('2d');
