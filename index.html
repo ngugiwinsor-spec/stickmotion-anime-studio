@@ -981,7 +981,6 @@ el('exportEpisodeVideo').onclick=async()=>{
   if(sfxContext?.state==='suspended')await sfxContext.resume();
   const episodeSfxStart=sfxContext?.currentTime||0;
   if(audioStream){audioEl.currentTime=Math.max(0,Number(el('audioOffset').value)||0);await audioEl.play().catch(()=>{})}
-  const start=performance.now();
   for(let si=0;si<episodeScenes.length;si++){
    const sc=episodeScenes[si],count=Math.max(1,Math.ceil((Number(sc.duration)||5)*fps));
    const transFrames=si===0?0:Math.min(count,Math.ceil(Math.max(0,Math.min(5,Number(sc.transitionDuration)||0))*fps));
@@ -1005,7 +1004,9 @@ el('exportEpisodeVideo').onclick=async()=>{
     if(videoTrack&&typeof videoTrack.requestFrame==='function'){videoTrack.requestFrame();requestedFrames++}
     rendered++;
     videoStatus('Episode render '+Math.round(rendered/totalFrames*100)+'% · Scene '+(si+1)+'/'+episodeScenes.length);
-    await delay(Math.max(0,start+rendered*1000/fps-performance.now()));
+    // Never catch up by rendering frames back-to-back: the browser compositor
+    // needs a real frame interval to deliver frames to MediaRecorder.
+    await delay(1000/fps);
    }
    await renderSceneAt(sc,count-1);
    prevFrame=await createImageBitmap(c);
