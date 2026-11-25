@@ -26,7 +26,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 <section><h3>Project</h3><label>Canvas preset</label><select id="preset"><option value="1920,1080">16:9 — 1920×1080</option><option value="1080,1920">9:16 — 1080×1920</option><option value="1080,1080">1:1 — 1080×1080</option><option value="1280,720">HD — 1280×720</option></select><label>Background</label><input id="bg" type="color" value="#222b3c"><div class="row" style="margin-top:8px"><button id="toggleBg">Transparent</button><button id="reset">Reset scene</button></div></section>
 </aside>
 <div class="stage-area">
-<div class="stage-tools"><button id="center">Center selected</button><button id="fit">Fit view</button><button id="exportPng" class="primary">Export PNG</button><button id="exportJson">Rig JSON</button><button id="importJson">Import Rig</button><input id="jsonFile" type="file" accept=".json" class="hidden"></div>
+<div class="stage-tools"><button id="center">Center selected</button><button id="fit">Fit view</button><button id="exportPng" class="primary">Export PNG</button><button id="undo">↶ Undo</button><button id="redo">↷ Redo</button><button id="saveProject">Save project</button><button id="loadProject">Open project</button><input id="projectFile" type="file" accept=".json,application/json" class="hidden"><button id="exportJson">Rig JSON</button><button id="importJson">Import Rig</button><input id="jsonFile" type="file" accept=".json" class="hidden"></div>
 <div class="canvas-wrap"><canvas id="stage" width="1280" height="720"></canvas></div>
 <div class="timeline"><div class="timeline-head"><strong>Animation timeline</strong><div class="row" style="flex:0 0 auto"><button id="capture" class="primary">● Capture key</button><button id="play">▶ Play</button><button id="deleteKey">Delete key</button><button id="clearKeys" class="danger">Clear keys</button></div></div><label>Frame <span id="frameLabel">0</span> / 120</label><input id="frame" type="range" min="0" max="120" value="0"><label>Interpolation</label><select id="easing"><option value="linear">Linear</option><option value="ease">Smooth ease-in/out</option><option value="easeOut">Ease out</option><option value="easeIn">Ease in</option><option value="hold">Hold previous pose</option></select><div class="frames" id="frames"></div><div class="small">Capture a pose at a frame, move to another frame, change the pose, and capture again. Playback interpolates between captured poses.</div></div>
 </div>
@@ -73,7 +73,7 @@ function renderLayers(){el('layers').innerHTML='';parts.forEach((p,i)=>{const d=
 function select(i){sel=i;renderLayers();syncControls();draw()}
 function syncControls(){let p=parts[sel];el('selectedName').textContent=p?p.name:'Select a layer';['x','y','rot','scale','opacity','px','py'].forEach(id=>{el(id).disabled=!p;if(p)el(id).value=p[id==='rot'?'rot':id]});}
 ['x','y','rot','scale','opacity','px','py'].forEach(id=>el(id).oninput=()=>{if(sel<0)return;let p=parts[sel];p[id]=Number(el(id).value);draw()});
-el('files').onchange=e=>[...e.target.files].forEach(f=>{let img=new Image();img.onload=()=>{parts.push({name:f.name,img,x:0,y:0,rot:0,scale:1,opacity:1,px:img.width/2,py:img.height/2,visible:true});select(parts.length-1)};img.src=URL.createObjectURL(f)}); 
+el('files').onchange=e=>[...e.target.files].forEach(f=>{let img=new Image();img.onload=()=>{parts.push({name:f.name,img,x:0,y:0,rot:0,scale:1,opacity:1,px:img.width/2,py:img.height/2,visible:true});select(parts.length-1)};const reader=new FileReader();reader.onload=()=>{img.src=reader.result};reader.readAsDataURL(f)}); 
 el('remove').onclick=()=>{if(sel<0)return;parts.splice(sel,1);sel=Math.min(sel,parts.length-1);renderLayers();syncControls();draw()};
 el('up').onclick=()=>{if(sel>0){[parts[sel-1],parts[sel]]=[parts[sel],parts[sel-1]];sel--;renderLayers();draw()}};
 el('down').onclick=()=>{if(sel>=0&&sel<parts.length-1){[parts[sel+1],parts[sel]]=[parts[sel],parts[sel+1]];sel++;renderLayers();draw()}};
@@ -196,5 +196,55 @@ el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'
 const importBeforeCamera=el('jsonFile').onchange;
 el('jsonFile').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let d=JSON.parse(await file.text());parts=(d.parts||[]).map(p=>({...p,img:null,parent:p.parent??-1}));keys=d.keyframes||{};Object.assign(faceKeys,d.faceKeys||{});Object.assign(camera,d.camera||{});Object.assign(cameraKeys,d.cameraKeys||{});c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);refreshParentMenu();syncCamera();renderFrames();draw();alert('Project settings loaded. Re-import source artwork to restore image layers.')}catch(err){alert('Invalid project JSON')}};
 syncCamera();
+
+/* v4.6: project persistence, autosave, undo/redo */
+const PROJECT_KEY='stickmotion-anime-studio-project-v1';
+let historyStack=[],historyIndex=-1,historyLock=false,savePending=false;
+function projectState(){
+ return {app:'StickMotion Anime Studio',version:'4.6',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},camera:{...camera},cameraKeys:{...cameraKeys},parts:parts.map(p=>{let {img,...rest}=p;return {...rest,image:img?.src||null}}),keyframes:JSON.parse(JSON.stringify(keys)),face:{...face},faceKeys:JSON.parse(JSON.stringify(faceKeys)),frame};
+}
+function stateSignature(s){return JSON.stringify(s)}
+function pushHistory(){
+ if(historyLock)return;
+ const s=projectState(),sig=stateSignature(s);
+ if(historyIndex>=0&&historyStack[historyIndex].sig===sig)return;
+ historyStack=historyStack.slice(0,historyIndex+1);
+ historyStack.push({sig,state:s});
+ if(historyStack.length>60)historyStack.shift();
+ historyIndex=historyStack.length-1;
+ updateHistoryButtons();
+}
+function updateHistoryButtons(){el('undo').disabled=historyIndex<=0;el('redo').disabled=historyIndex<0||historyIndex>=historyStack.length-1}
+function loadProjectState(s){
+ historyLock=true;
+ parts=(s.parts||[]).map(p=>{let q={...p};const src=q.image;delete q.image;q.img=null;if(src){let im=new Image();im.onload=()=>draw();im.src=src;q.img=im}return q});
+ keys=JSON.parse(JSON.stringify(s.keyframes||{}));
+ Object.keys(cameraKeys).forEach(k=>delete cameraKeys[k]);Object.assign(cameraKeys,s.cameraKeys||{});
+ Object.assign(camera,s.camera||{x:0,y:0,zoom:1,rot:0});
+ Object.keys(faceKeys).forEach(k=>delete faceKeys[k]);Object.assign(faceKeys,s.faceKeys||{});
+ if(s.face)Object.assign(face,s.face);
+ c.width=s.canvas?.width||1280;c.height=s.canvas?.height||720;
+ el('bg').value=s.canvas?.background||'#222b3c';transparent=!!s.canvas?.transparent;
+ frame=Number(s.frame)||0;el('frame').value=frame;el('frameLabel').textContent=frame;
+ sel=parts.length-1;renderLayers();syncControls();refreshParentMenu();syncFace();syncCamera();renderFrames();draw();
+ historyLock=false;queueAutosave();
+}
+function queueAutosave(){
+ if(savePending)return;savePending=true;
+ setTimeout(()=>{savePending=false;try{localStorage.setItem(PROJECT_KEY,JSON.stringify(projectState()))}catch(e){console.warn('Autosave unavailable: browser storage may be full',e)}},500);
+}
+function downloadProject(){const data=JSON.stringify(projectState(),null,2);download(URL.createObjectURL(new Blob([data],{type:'application/json'})),'stickmotion-project.json','application/json')}
+el('saveProject').onclick=()=>{pushHistory();downloadProject()};
+el('loadProject').onclick=()=>el('projectFile').click();
+el('projectFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{loadProjectState(JSON.parse(await file.text()));pushHistory();alert('Project opened successfully. Your artwork and animation data are included.')}catch(err){alert('Could not open this project file.')}}; 
+el('undo').onclick=()=>{if(historyIndex<=0)return;historyIndex--;loadProjectState(historyStack[historyIndex].state);updateHistoryButtons()};
+el('redo').onclick=()=>{if(historyIndex>=historyStack.length-1)return;historyIndex++;loadProjectState(historyStack[historyIndex].state);updateHistoryButtons()};
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();el(e.shiftKey?'redo':'undo').click()}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();el('redo').click()}});
+/* Capture a pre-edit state once per direct interaction. */
+document.addEventListener('pointerdown',e=>{if(e.target===c||e.target.closest('button')||(['range','number','color'].includes(e.target.type)&&e.target.id!=='frame'))pushHistory()},true);
+document.addEventListener('keydown',e=>{if(e.target.matches('input[type=number],input[type=range]'))pushHistory()},true);
+const drawBeforeAutosave=draw;
+draw=function(){drawBeforeAutosave();queueAutosave()};
+try{const saved=localStorage.getItem(PROJECT_KEY);if(saved){loadProjectState(JSON.parse(saved));historyStack=[];historyIndex=-1;pushHistory() }else pushHistory()}catch(e){pushHistory()}
 
 </script></body></html>
