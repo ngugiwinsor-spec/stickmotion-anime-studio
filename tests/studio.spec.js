@@ -1151,3 +1151,31 @@ test('timeline keyframe capture, delete, clear, undo and reload all persist', as
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1') || '{}').keyframes?.['20']?.[0]?.x === 123);
   expect(errors).toEqual([]);
 });
+
+
+test('timeline playback advances interpolated poses and pauses cleanly', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.waitForFunction(() => parts.length === 10);
+  await page.evaluate(() => {
+    const start = snap(), end = snap();
+    start[0].x = 0;
+    end[0].x = 100;
+    keys = { 0: start, 10: end };
+    frame = 0;
+    document.querySelector('#frame').value = '0';
+    applyKey(0);
+    draw();
+  });
+  await page.locator('#play').click();
+  await page.waitForFunction(() => frame >= 2 && parts[0].x > 0);
+  await expect(page.locator('#play')).toContainText('Pause');
+  await page.locator('#play').click();
+  const pausedFrame = await page.evaluate(() => frame);
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => frame)).toBe(pausedFrame);
+  await expect(page.locator('#play')).toContainText('Play');
+  expect(errors).toEqual([]);
+});
