@@ -336,7 +336,7 @@ el('exportVideo').onclick=async()=>{
  if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play'}
  const fps=Math.max(1,Math.min(60,Number(el('audioFps').value)||24));
  const seconds=Math.max(1,Math.min(120,Number(el('sceneDuration').value)||5));
- const totalFrames=Math.min(120,Math.ceil(seconds*fps));
+ const totalFrames=Math.ceil(seconds*fps);
  const originalFrame=frame,originalAudioTime=audioEl.currentTime;
  const stream=c.captureStream(fps);
  let audioStream=null;
