@@ -51,3 +51,17 @@ test('PNG export starts successfully', async ({ page }) => {
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.png$/i);
 });
+
+test('video export quality changes recorder bitrate', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  const quality = page.locator('#exportQuality');
+  await expect(quality).toHaveValue('8000000');
+  expect(await page.evaluate(() => exportVideoBitrate())).toBe(8000000);
+  await quality.selectOption('4000000');
+  expect(await page.evaluate(() => exportVideoBitrate())).toBe(4000000);
+  await quality.selectOption('16000000');
+  expect(await page.evaluate(() => exportVideoBitrate())).toBe(16000000);
+  expect(errors).toEqual([]);
+});
