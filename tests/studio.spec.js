@@ -1115,3 +1115,39 @@ test('rig hierarchy preserves world transforms, blocks cycles, and remaps layer 
   expect(await page.evaluate(() => parts.length)).toBe(9);
   expect(errors).toEqual([]);
 });
+
+
+test('timeline keyframe capture, delete, clear, undo and reload all persist', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.waitForFunction(() => parts.length === 10);
+  await page.evaluate(() => {
+    frame = 20;
+    document.querySelector('#frame').value = '20';
+    document.querySelector('#frameLabel').textContent = '20';
+    parts[0].x = 123;
+    syncControls();
+    draw();
+  });
+  await page.locator('#capture').click();
+  await page.waitForFunction(() => {
+    const state = JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1') || '{}');
+    return state.keyframes?.['20']?.[0]?.x === 123;
+  });
+  await page.reload();
+  await page.waitForFunction(() => keys?.['20']?.[0]?.x === 123 && parts.length === 10);
+  expect(await page.evaluate(() => ({ frame, keyX: keys[20][0].x }))).toEqual({ frame: 20, keyX: 123 });
+
+  await page.locator('#deleteKey').click();
+  await page.waitForFunction(() => !JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1') || '{}').keyframes?.['20']);
+  await page.locator('#undo').click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1') || '{}').keyframes?.['20']?.[0]?.x === 123);
+
+  await page.locator('#clearKeys').click();
+  await page.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1') || '{}').keyframes || {}).length === 0);
+  await page.locator('#undo').click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('stickmotion-anime-studio-project-v1') || '{}').keyframes?.['20']?.[0]?.x === 123);
+  expect(errors).toEqual([]);
+});

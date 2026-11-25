@@ -117,7 +117,7 @@ el('preset').onchange=()=>{let [w,h]=el('preset').value.split(',').map(Number);c
 el('bg').oninput=draw;el('toggleBg').onclick=()=>{transparent=!transparent;el('toggleBg').textContent=transparent?'Use background':'Transparent';draw()};
 el('reset').onclick=()=>{parts=[];sel=-1;keys={};frame=0;renderLayers();syncControls();draw();renderFrames()};
 function snap(){return parts.map(p=>({x:p.x,y:p.y,rot:p.rot,scale:p.scale,opacity:p.opacity}))}
-el('capture').onclick=()=>{keys[frame]=snap();renderFrames()};
+el('capture').onclick=()=>{keys[frame]=snap();renderFrames();draw();pushHistory()};
 el('frame').max=120;el('frame').oninput=()=>{frame=Number(el('frame').value);el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()};
 function easingProgress(t,mode){
  t=Math.max(0,Math.min(1,t));
@@ -140,7 +140,7 @@ function easingProgress(t,mode){
 function applyKey(f){let ks=Object.keys(keys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let prev=ks.filter(k=>k<=f).pop(),next=ks.find(k=>k>=f);if(prev===undefined)prev=ks[0];if(next===undefined)next=ks[ks.length-1];let t=next===prev?0:(f-prev)/(next-prev);const mode=el('easing')?.value||'linear';t=easingProgress(t,mode);keys[prev].forEach((s,i)=>{if(!parts[i])return;let a=s,b=keys[next][i]||a;for(let q of ['x','y','rot','scale','opacity'])parts[i][q]=a[q]+(b[q]-a[q])*t});syncControls()}
 function renderFrames(){el('frames').innerHTML='';for(let i=0;i<=120;i+=5){let b=document.createElement('button');b.className='frame'+(i===frame?' active':'');b.textContent=i+(keys[i]?'◆':'');b.onclick=()=>{frame=i;el('frame').value=i;el('frameLabel').textContent=i;applyKey(i);renderFrames();draw()};el('frames').append(b)}}
 el('play').onclick=()=>{if(playing){playing=false;clearInterval(playTimer);el('play').textContent='▶ Play';return}playing=true;el('play').textContent='❚❚ Pause';playTimer=setInterval(()=>{frame=(frame+1)%121;el('frame').value=frame;el('frameLabel').textContent=frame;applyKey(frame);renderFrames();draw()},100)};
-el('deleteKey').onclick=()=>{delete keys[frame];renderFrames()};el('clearKeys').onclick=()=>{keys={};renderFrames()};
+el('deleteKey').onclick=()=>{delete keys[frame];renderFrames();draw();pushHistory()};el('clearKeys').onclick=()=>{keys={};renderFrames();draw();pushHistory()};
 el('exportJson').onclick=()=>{let data={app:'StickMotion Anime Studio',version:'4.1',canvas:{width:c.width,height:c.height,background:el('bg').value,transparent},parts:parts.map(({img,...p})=>({...p,src:null})),keyframes:keys};download(JSON.stringify(data,null,2),'stickmotion-rig.json','application/json')};
 el('importJson').onclick=()=>el('jsonFile').click();el('jsonFile').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let d=JSON.parse(await f.text());alert('Rig settings imported. Image files must be re-imported separately; this JSON stores their layer settings.');parts=d.parts||[];keys=d.keyframes||{};c.width=d.canvas?.width||1280;c.height=d.canvas?.height||720;renderLayers();select(parts.length-1);renderFrames();draw()}catch(err){alert('Invalid JSON file')}};
 el('exportPng').onclick=()=>{let old=sel;sel=-1;draw();c.toBlob(blob=>{download(URL.createObjectURL(blob),'stickmotion-stage.png','image/png');sel=old;draw()},'image/png')};
