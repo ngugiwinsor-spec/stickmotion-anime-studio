@@ -16,7 +16,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:9px 0 4px}.stage-ar
 .timeline{background:#111a2c;border:1px solid var(--line);border-radius:9px;padding:10px}.timeline-head{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}.frames{display:flex;gap:4px;overflow:auto;padding:7px 0}.frame{min-width:36px;padding:7px 4px;text-align:center;border:1px solid var(--line);border-radius:5px}.frame.active{background:#304477;border-color:var(--accent)}
 .hint{background:#0d1728;border-radius:8px;padding:9px;color:var(--muted);font-size:12px;line-height:1.5}.hidden{display:none!important}
 @media(max-width:900px){main{grid-template-columns:1fr}.aside-left,.right{border:0!important;border-bottom:1px solid var(--line);max-height:none}.canvas-wrap{min-height:360px}.stage-area{order:-1}}
-@media(max-width:500px){header{flex-wrap:wrap;gap:8px;padding:10px 12px}header>.small{display:none}.logo{font-size:14px}main{min-width:0}.stage-area{padding:8px}.stage-tools>*{max-width:100%}.canvas-wrap{min-width:0}.timeline{min-width:0}}
+@media(max-width:500px){header{flex-wrap:wrap;gap:8px;padding:10px 12px}header>.small{display:none}.logo{font-size:14px}main{grid-template-columns:minmax(0,1fr);min-width:0;width:100%}main>*,aside,.stage-area{min-width:0;max-width:100%}input,select,button{max-width:100%}.stage-area{padding:8px}.stage-tools{min-width:0}.stage-tools>*{max-width:100%}.canvas-wrap{min-width:0}.timeline{min-width:0}}
 </style></head>
 <body>
 <header><div class="logo">StickMotion <span>Anime Studio</span></div><span class="badge">v7.26 • Batch Cue Volume</span><span style="margin-left:auto" class="small">Local-first • Your files stay on this device</span></header>
