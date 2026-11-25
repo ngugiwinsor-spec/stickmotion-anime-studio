@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.8');
+  await expect(page.locator('.badge')).toContainText('v7.9');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -268,5 +268,33 @@ test('sound effects cues are editable, persistent, and previewable', async ({ pa
   await expect(page.locator('#sfxStatus')).toContainText('Previewing whoosh');
   await page.locator('#clearSfxCues').click();
   await expect(page.locator('#sfxStatus')).toContainText('0 cues');
+  expect(errors).toEqual([]);
+});
+
+
+test('episode export scheduler keeps sound cues scoped to each scene', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.__stickMotionLoadProjectState({
+      parts: [],
+      soundEffects: [{id:'a',frame:0,type:'impact'},{id:'b',frame:12,type:'whoosh'}]
+    });
+    window.__stickMotionScheduleEpisodeSfx('scene-one', 0, 10);
+    window.__stickMotionScheduleEpisodeSfx('scene-one', 12, 10.5);
+    window.__stickMotionLoadProjectState({
+      parts: [],
+      soundEffects: [{id:'c',frame:0,type:'magic'}]
+    });
+    window.__stickMotionScheduleEpisodeSfx('scene-two', 0, 11);
+  });
+  const events = await page.evaluate(() => window.__stickMotionEpisodeSfxEvents);
+  expect(events.map(e => [e.sceneId,e.frame,e.type])).toEqual([
+    ['scene-one',0,'impact'],
+    ['scene-one',12,'whoosh'],
+    ['scene-two',0,'magic']
+  ]);
+  expect(events[1].offset).toBeGreaterThan(events[0].offset);
   expect(errors).toEqual([]);
 });
