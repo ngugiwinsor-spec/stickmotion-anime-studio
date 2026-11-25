@@ -183,3 +183,21 @@ test('action choreography reshapes generated attack keyframes', async ({ page })
   await expect(page.locator('#choreoStatus')).toContainText('Five-hit combo applied across 9 poses, facing left');
   expect(errors).toEqual([]);
 });
+
+
+test('secondary motion adds delayed overlap to distal keyframed parts', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.locator('#motionPreset').selectOption('walk');
+  await page.locator('#generateMotion').click();
+  const before = await page.evaluate(() => JSON.stringify(keys));
+  await page.locator('#secondaryAmount').fill('60');
+  await page.locator('#applySecondaryMotion').click();
+  const after = await page.evaluate(() => JSON.stringify(keys));
+  expect(after).not.toBe(before);
+  await expect(page.locator('#secondaryStatus')).toContainText('Secondary motion applied to');
+  expect(errors).toEqual([]);
+});
