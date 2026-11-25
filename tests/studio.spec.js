@@ -6,7 +6,7 @@ test('studio loads without JavaScript errors', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/StickMotion Anime Studio/);
   await expect(page.locator('#stage')).toBeVisible();
-  await expect(page.locator('.badge')).toContainText('v7.14');
+  await expect(page.locator('.badge')).toContainText('v7.15');
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -288,6 +288,27 @@ test('existing sound cues can be edited and saved in project state', async ({ pa
   const saved = await page.evaluate(() => window.__stickMotionProjectState());
   await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
   expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[27,'magic']]);
+  expect(errors).toEqual([]);
+});
+
+test('sound cues can be duplicated independently and persist', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addSfxCue').click();
+  await page.getByRole('button', { name: 'Duplicate sound cue at frame 0' }).click();
+  await expect(page.locator('#sfxStatus')).toContainText('2 cues');
+  const cues = await page.evaluate(() => window.__stickMotionSfxCues.map(c => ({id:c.id,frame:c.frame,type:c.type})));
+  expect(cues).toHaveLength(2);
+  expect(cues[0].id).not.toBe(cues[1].id);
+  expect(cues.map(c => [c.frame,c.type])).toEqual([[0,'impact'],[0,'impact']]);
+  await page.getByRole('spinbutton', { name: 'Sound cue frame 0' }).nth(1).fill('36');
+  await page.getByRole('combobox', { name: 'Sound cue type at frame 0' }).nth(1).selectOption('whoosh');
+  await page.getByRole('button', { name: 'Save sound cue at frame 0' }).nth(1).click();
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[0,'impact'],[36,'whoosh']]);
+  const saved = await page.evaluate(() => window.__stickMotionProjectState());
+  await page.evaluate(state => window.__stickMotionLoadProjectState(state), saved);
+  expect(await page.evaluate(() => window.__stickMotionSfxCues.map(c => [c.frame,c.type]))).toEqual([[0,'impact'],[36,'whoosh']]);
   expect(errors).toEqual([]);
 });
 
