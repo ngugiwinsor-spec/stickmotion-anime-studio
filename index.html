@@ -743,12 +743,32 @@ el('applyChoreography').onclick=()=>{
   const total=hits.reduce((a,v)=>a+v,0);
   const alternating=hits.reduce((sum,v,i)=>sum+v*(i%2===0?1:-1),0);
   const recoil=pulse(t,Math.min(1,(peaks[peaks.length-1]||.78)+.09),.2);
-  torso.forEach(x=>{if(pose[x.i])pose[x.i].rot+=dir*(-8*total+5*recoil)*power});
-  arms.forEach(x=>{if(pose[x.i])pose[x.i].rot+=dir*side(x)*(x.name.includes('forearm')?18:26)*alternating*power});
-  roots.forEach(x=>{if(pose[x.i]){pose[x.i].x+=dir*(pattern==='aerial'?10:6)*total*power;if(pattern==='aerial')pose[x.i].y-=18*Math.sin(Math.PI*t)*power}});
+  const prep=peaks.reduce((sum,p)=>sum+pulse(t,Math.max(0,p-.075),.09),0);
+  const impact=hits.reduce((sum,v)=>sum+v,0);
+  const recovery=pulse(t,Math.min(1,(peaks[peaks.length-1]||.78)+.12),.2);
+  torso.forEach(x=>{if(pose[x.i])pose[x.i].rot+=dir*(-10*total+7*recoil+3*prep)*power});
+  arms.forEach(x=>{if(pose[x.i])pose[x.i].rot+=dir*side(x)*(x.name.includes('forearm')?22:32)*alternating*power+dir*side(x)*(-8*prep+5*recovery)*power});
+  const legs=named.filter(x=>/leg|thigh|shin|calf|foot|knee|ankle/.test(x.name));
+  legs.forEach(x=>{if(pose[x.i])pose[x.i].rot+=side(x)*(pattern==='aerial'?-18:10)*impact*power+side(x)*4*recovery*power});
+  roots.forEach(x=>{if(pose[x.i]){pose[x.i].x+=dir*(pattern==='aerial'?16:9)*total*power;if(pattern==='aerial')pose[x.i].y-=24*Math.sin(Math.PI*t)*power}});
  });
+ /* Compose camera punch-ins and impact cues on the same frame clock. */
+ const baseCamera=cameraSnapshot();
+ const impactFrames=[];
+ peaks.forEach(p=>{
+  const hitFrame=Math.round(start+span*p);
+  impactFrames.push(hitFrame);
+  cameraKeys[Math.max(start,hitFrame-2)]={...baseCamera,zoom:Math.min(2.5,baseCamera.zoom*(pattern==='aerial'?1.10:1.07)),rot:baseCamera.rot-dir*.8};
+  cameraKeys[hitFrame]={...baseCamera,zoom:Math.min(2.5,baseCamera.zoom*(pattern==='aerial'?1.14:1.10)),rot:baseCamera.rot+dir*1.1};
+  cameraKeys[Math.min(end,hitFrame+3)]={...baseCamera,zoom:baseCamera.zoom,rot:baseCamera.rot};
+ });
+ cinematicImpactFrames=impactFrames;
+ if(typeof sfxCues!=='undefined'){
+  impactFrames.forEach(f=>{sfxCues.push({id:Date.now()+Math.random(),frame:Math.max(start,f-2),type:'whoosh',volume:70,muted:false});sfxCues.push({id:Date.now()+Math.random(),frame:f,type:'impact',volume:85,muted:false})});
+  if(typeof sfxRefresh==='function')sfxRefresh();
+ }
  applyKey(frame);renderFrames();draw();pushHistory();
- el('choreoStatus').textContent=({three:'Three-hit combo',five:'Five-hit combo',aerial:'Aerial finisher',counter:'Counterattack'}[pattern])+' applied across '+ids.length+' poses, facing '+(dir>0?'right':'left')+'.';
+ el('choreoStatus').textContent=({three:'Three-hit combo',five:'Five-hit combo',aerial:'Aerial finisher',counter:'Counterattack'}[pattern])+' applied across '+ids.length+' poses, facing '+(dir>0?'right':'left')+'. Added '+impactFrames.length+' camera punch-ins and impact sound cues.';
 };
 
 /* v7.4: delayed overlap for distal character parts */
