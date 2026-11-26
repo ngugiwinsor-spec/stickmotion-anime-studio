@@ -1551,3 +1551,35 @@ test('demo character loads as a connected shoulder elbow hip and knee rig', asyn
   expect(movement.shoulderMovesArm).toBeTruthy();
   expect(movement.hipMovesShin).toBeTruthy();
 });
+
+
+test('full-body action presets generate distinct run, jump, landing, attack and hit-reaction poses', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+
+  const presets = ['run', 'jump', 'landing', 'attack', 'hit'];
+  const results = {};
+  for (const preset of presets) {
+    await page.evaluate(() => { Object.keys(keys).forEach(key => delete keys[key]); });
+    await page.locator('#motionPreset').selectOption(preset);
+    await page.locator('#motionDuration').selectOption('60');
+    await page.locator('#generateMotion').click();
+    await page.waitForFunction(() => Object.keys(keys).length >= 5);
+    results[preset] = await page.evaluate(() => {
+      const frames = Object.keys(keys).map(Number).sort((a,b) => a-b);
+      const pose = frame => keys[frame];
+      const first = pose(frames[0]), middle = pose(frames[Math.floor(frames.length / 2)]), last = pose(frames[frames.length - 1]);
+      const movement = first.some((part, i) =>
+        Math.abs(part.x-middle[i].x) > 1 || Math.abs(part.y-middle[i].y) > 1 || Math.abs(part.rot-middle[i].rot) > 1);
+      return { count: frames.length, movement, frames };
+    });
+    expect(results[preset].count).toBe(9);
+    expect(results[preset].movement).toBeTruthy();
+  }
+  expect(await page.locator('#motionPreset option[value="landing"]').count()).toBe(1);
+  expect(await page.locator('#motionPreset option[value="hit"]').count()).toBe(1);
+  expect(errors).toEqual([]);
+});
