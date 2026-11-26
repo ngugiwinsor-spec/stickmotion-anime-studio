@@ -1583,3 +1583,26 @@ test('full-body action presets generate distinct run, jump, landing, attack and 
   expect(await page.locator('#motionPreset option[value="hit"]').count()).toBe(1);
   expect(errors).toEqual([]);
 });
+
+
+test('cinematic choreography adds camera punch-ins, impact markers and synced sound cues', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#addDemo').click();
+  await page.locator('#motionPreset').selectOption('attack');
+  await page.locator('#generateMotion').click();
+  await page.locator('#choreoPattern').selectOption('five');
+  await page.locator('#applyChoreography').click();
+  const result = await page.evaluate(() => ({
+    cameraKeys: Object.keys(window.__stickMotionCameraKeys || {}).map(Number),
+    impacts: window.__stickMotionImpactFrames || [],
+    cues: window.__stickMotionSfxCues || []
+  }));
+  expect(result.impacts).toHaveLength(5);
+  expect(result.cameraKeys.length).toBeGreaterThanOrEqual(10);
+  expect(result.cues.filter(c => c.type === 'impact')).toHaveLength(5);
+  expect(result.cues.filter(c => c.type === 'whoosh')).toHaveLength(5);
+  await expect(page.locator('#choreoStatus')).toContainText('Added 5 camera punch-ins and impact sound cues');
+  expect(errors).toEqual([]);
+});
