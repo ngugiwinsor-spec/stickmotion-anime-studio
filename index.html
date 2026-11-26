@@ -1787,7 +1787,7 @@ function solveGroundedFeet(actor,anchors){
   const dx=anchor.x-joint.x,dy=anchor.y-joint.y,raw=Math.hypot(dx,dy);
   const a=anchor.upperLength,b=anchor.lowerLength;
   const d=Math.max(Math.abs(a-b)+.01,Math.min(a+b-.01,raw));
-  const theta=Math.atan2(dy,dx),alpha=Math.atan2(knee.x,knee.y);
+  const theta=Math.atan2(dy,dx),alpha=Math.atan2(knee.y,knee.x);
   const cosine=Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d)));
   const bend=Math.acos(cosine),rootWorldAngle=theta-bend-alpha;
   const kneeX=joint.x+a*Math.cos(rootWorldAngle+alpha),kneeY=joint.y+a*Math.sin(rootWorldAngle+alpha);
