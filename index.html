@@ -226,6 +226,20 @@ function demo(){
  stopTimelinePlayback();parts=[];keys={};Object.keys(faceKeys).forEach(k=>delete faceKeys[k]);frame=0;
  const specs=[['Torso',130,190,0,40],['Head',120,120,0,-130],['Left upper arm',70,140,-100,-15],['Left forearm',68,150,-130,80],['Right upper arm',70,140,100,-15],['Right forearm',68,150,130,80],['Left thigh',90,160,-40,170],['Left shin',80,155,-45,285],['Right thigh',90,160,40,170],['Right shin',80,155,45,285]];
  for(const [name,w,h,x,y] of specs){const img=demoPartArtwork(name,w,h);img.onload=()=>{draw();updateCanvasEmptyNotice()};img.onerror=()=>motionStatus('A demo character artwork part failed to load. Please reload the demo.');parts.push({name,img,x,y,rot:0,scale:1,opacity:1,px:w/2,py:h/2,visible:true,parent:-1});}
+ // Build a real shoulder, elbow, hip and knee hierarchy. Each child origin is its joint.
+ const rig=[
+  {parent:-1,x:0,y:40,px:65,py:95},
+  {parent:0,x:0,y:-95,px:60,py:120},
+  {parent:0,x:-58,y:-65,px:35,py:10},
+  {parent:2,x:0,y:122,px:34,py:10},
+  {parent:0,x:58,y:-65,px:35,py:10},
+  {parent:4,x:0,y:122,px:34,py:10},
+  {parent:0,x:-29,y:85,px:45,py:10},
+  {parent:6,x:0,y:140,px:40,py:10},
+  {parent:0,x:29,y:85,px:45,py:10},
+  {parent:8,x:0,y:140,px:40,py:10}
+ ];
+ rig.forEach((joint,i)=>Object.assign(parts[i],joint));
  renderLayers();select(0);draw();updateCanvasEmptyNotice();el('motionPreset').value='walk';el('motionDuration').value='60';el('motionStrength').value='100';el('motionAnticipation').value='0';el('motionImpact').value='0';el('motionFollow').value='0';el('generateMotion').click();motionStatus('Anime hero demo loaded with detailed vector artwork and an automatically generated 2.5-second walk cycle. Press Play to preview or export.');}
 el('addDemo').onclick=demo;el('emptyLoadDemo').onclick=demo;el('emptyImportArtwork').onclick=()=>el('files').click();renderFrames();draw();updateCanvasEmptyNotice();
 function isDescendantOf(candidate,ancestor){
