@@ -1,5 +1,26 @@
 const { test, expect } = require('@playwright/test');
 
+test('blank-frame detector catches sparse line-art pixels without accepting empty canvases', async ({ page }) => {
+  await page.goto('/');
+  const results = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280; canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#222b3c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const empty = canvasHasVisibleContent(canvas, '#222b3c');
+    // Deliberately place a single pixel between the old detector's grid samples.
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(17, 13, 1, 1);
+    const sparse = canvasHasVisibleContent(canvas, '#222b3c');
+    const transparent = document.createElement('canvas');
+    transparent.width = 1280; transparent.height = 720;
+    const transparentCtx = transparent.getContext('2d');
+    transparentCtx.fillStyle = 'rgba(255,255,255,.03)';
+    transparentCtx.fillRect(19, 15, 1, 1);
+    return { empty, sparse, transparent: canvasHasVisibleContent(transparent, '#222b3c', true) };
+  });
+  expect(results).toEqual({ empty: false, sparse: true, transparent: true });
+});
+
 test('studio loads without JavaScript errors', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
