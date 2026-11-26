@@ -1563,6 +1563,7 @@ test('full-body action presets generate distinct run, jump, landing, attack and 
   const presets = ['run', 'jump', 'landing', 'attack', 'hit'];
   const results = {};
   for (const preset of presets) {
+    await page.evaluate(() => { Object.keys(keys).forEach(key => delete keys[key]); });
     await page.locator('#motionPreset').selectOption(preset);
     await page.locator('#motionDuration').selectOption('60');
     await page.locator('#generateMotion').click();
