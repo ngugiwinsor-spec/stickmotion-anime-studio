@@ -763,6 +763,7 @@ el('applyChoreography').onclick=()=>{
   cameraKeys[Math.min(end,hitFrame+3)]={...baseCamera,zoom:baseCamera.zoom,rot:baseCamera.rot};
  });
  cinematicImpactFrames=impactFrames;
+ window.__stickMotionImpactFrames=cinematicImpactFrames.slice();
  if(typeof sfxCues!=='undefined'){
   impactFrames.forEach(f=>{sfxCues.push({id:Date.now()+Math.random(),frame:Math.max(start,f-2),type:'whoosh',volume:70,muted:false});sfxCues.push({id:Date.now()+Math.random(),frame:f,type:'impact',volume:85,muted:false})});
   if(typeof sfxRefresh==='function')sfxRefresh();
