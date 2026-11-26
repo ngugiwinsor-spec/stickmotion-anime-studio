@@ -1465,3 +1465,33 @@ test('demo puppet automatically generates walk-cycle keyframes', async ({ page }
   await page.waitForTimeout(100);
   await expect(page.locator('#frameLabel')).toHaveText('30');
 });
+
+test('demo character uses original detailed vector artwork and renders visibly', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  const result = await page.evaluate(() => ({
+    vectorParts: parts.filter(p => p.img.src.startsWith('data:image/svg+xml')).length,
+    imageWidths: parts.map(p => p.img.naturalWidth),
+    canvasData: document.querySelector('#stage').toDataURL()
+  }));
+  expect(result.vectorParts).toBe(10);
+  expect(result.imageWidths.every(width => width > 0)).toBeTruthy();
+  expect(result.canvasData.length).toBeGreaterThan(5000);
+  expect(errors).toEqual([]);
+});
+
+test('demo walk cycle changes character pose across the timeline', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  const movement = await page.evaluate(() => {
+    const start = parts.map(p => ({ x:p.x, y:p.y, rot:p.rot }));
+    applyKey(30);
+    const middle = parts.map(p => ({ x:p.x, y:p.y, rot:p.rot }));
+    return start.some((p,i) => Math.abs(p.x-middle[i].x)>0.1 || Math.abs(p.y-middle[i].y)>0.1 || Math.abs(p.rot-middle[i].rot)>0.1);
+  });
+  expect(movement).toBeTruthy();
+});
