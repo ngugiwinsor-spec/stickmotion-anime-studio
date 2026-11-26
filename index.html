@@ -988,16 +988,18 @@ refreshMotionLibrary();
 /* Shared video-export helpers used by both scene and episode exporters. */
 const videoStatus=msg=>{const n=el('videoStatus');if(n)n.textContent=msg};
 function exportVideoBitrate(){return Math.max(1000000,Math.min(24000000,Number(el('exportQuality')?.value)||8000000));}
-function canvasHasVisibleContent(canvas,background){
+function canvasHasVisibleContent(canvas,background,transparent=false){
  if(!canvas||!canvas.width||!canvas.height)return false;
+ const ctx=canvas.getContext('2d');if(!ctx)return false;
+ const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
  const test=document.createElement('canvas');test.width=1;test.height=1;
  const tctx=test.getContext('2d');tctx.fillStyle=background||'#222b3c';tctx.fillRect(0,0,1,1);
  const bg=tctx.getImageData(0,0,1,1).data;
- const sampleCtx=canvas.getContext('2d');if(!sampleCtx)return false;
  const stepX=Math.max(1,Math.floor(canvas.width/32)),stepY=Math.max(1,Math.floor(canvas.height/32));
  for(let y=0;y<canvas.height;y+=stepY)for(let x=0;x<canvas.width;x+=stepX){
-  const p=sampleCtx.getImageData(x,y,1,1).data;
-  if(p[3]<32||Math.abs(p[0]-bg[0])+Math.abs(p[1]-bg[1])+Math.abs(p[2]-bg[2])>36)return true;
+  const i=(y*canvas.width+x)*4;
+  if(transparent){if(pixels[i+3]>32)return true;}
+  else if(pixels[i+3]>32&&Math.abs(pixels[i]-bg[0])+Math.abs(pixels[i+1]-bg[1])+Math.abs(pixels[i+2]-bg[2])>36)return true;
  }
  return false;
 }
@@ -1056,7 +1058,7 @@ el('exportVideo').onclick=async()=>{
   }):null;
   const renderFrame=async index=>{
    const source=renderer.__stickMotionRenderExportFrame(index);
-   if(!canvasHasVisibleContent(source,snapshot.canvas?.background||'#222b3c'))throw new Error('The scene renderer produced a blank frame. Check that artwork is loaded and visible.');
+   if(!canvasHasVisibleContent(source,snapshot.canvas?.background||'#222b3c',!!snapshot.canvas?.transparent))throw new Error('The scene renderer produced a blank frame. Check that artwork is loaded and visible.');
    outputCtx.clearRect(0,0,width,height);
    outputCtx.fillStyle=snapshot.canvas?.background||'#222b3c';
    outputCtx.fillRect(0,0,width,height);
