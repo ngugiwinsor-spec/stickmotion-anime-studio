@@ -1431,3 +1431,22 @@ test('empty canvas shows starter controls and exports refuse blank scenes', asyn
   await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
   await expect(page.locator('#canvasEmptyNotice')).toBeHidden();
 });
+
+test('camera shake is disabled by default to prevent unwanted jitter in demo exports', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#cinematicShake')).not.toBeChecked();
+  await expect(page.locator('#shakeIntensity')).toHaveValue('0');
+});
+
+test('automatic ambient soundtrack mixer creates audible audio without external files', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const chunks=[];
+    for await (const buffer of window.StickMotionEpisodeExport.mixEpisodeAudio({scenes:[{duration:2,project:{}}],fps:24,backgroundMusic:true,chunkSeconds:1})) chunks.push(buffer);
+    const rms=buffer=>{const data=buffer.getChannelData(0);let sum=0;for(let i=0;i<data.length;i++)sum+=data[i]*data[i];return Math.sqrt(sum/Math.max(1,data.length))};
+    return {chunks:chunks.length,duration:chunks.reduce((sum,b)=>sum+b.duration,0),rms:chunks.map(rms)};
+  });
+  expect(result.chunks).toBe(2);
+  expect(result.duration).toBeCloseTo(2,2);
+  expect(result.rms.every(value=>value>0.001)).toBeTruthy();
+});
