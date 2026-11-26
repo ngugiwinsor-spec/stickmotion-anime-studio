@@ -1835,21 +1835,25 @@ const fightApplyKeyBase=applyKey;
 applyKey=function(f){fightApplyKeyBase(f);if(opponentParts)interpolateOpponent(f)};
 function drawFightActor(actor,offsetX,mirror){
  if(!actor?.length)return;
- ctx.save();ctx.translate(c.width/2+offsetX,c.height/2);ctx.scale(mirror?-1:1,1);
- const painted=new Set();
- function paint(i){
-  if(painted.has(i))return;painted.add(i);
-  const p=actor[i];if(!p||p.visible===false||!p.img||!p.img.complete||!p.img.naturalWidth)return;
-  const parent=p.parent??-1;
-  ctx.save();
-  if(parent>=0&&actor[parent]){
-   const q=actor[parent];ctx.translate(q.x,q.y);ctx.rotate(q.rot*Math.PI/180);ctx.scale(q.scale,q.scale);
+ ctx.save();
+ ctx.translate(c.width/2,c.height/2);
+ ctx.translate(camera.x,camera.y);
+ ctx.rotate(camera.rot*Math.PI/180);
+ ctx.scale(camera.zoom,camera.zoom);
+ ctx.translate(offsetX,0);
+ ctx.scale(mirror?-1:1,1);
+ actor.forEach((p,i)=>{
+  if(!p||p.visible===false||!p.img||!p.img.complete||!p.img.naturalWidth)return;
+  const chain=[],seen=new Set();let current=i;
+  while(current>=0&&current<actor.length&&!seen.has(current)){
+   seen.add(current);chain.unshift(current);current=actor[current].parent??-1;
   }
-  ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.scale(p.scale,p.scale);ctx.globalAlpha=p.opacity??1;
-  ctx.drawImage(p.img,-p.px,-p.py);ctx.restore();
-  actor.forEach((child,j)=>{if(child.parent===i)paint(j)});
- }
- actor.forEach((p,i)=>{if((p.parent??-1)<0)paint(i)});
+  ctx.save();
+  chain.forEach(index=>{const joint=actor[index];ctx.translate(joint.x,joint.y);ctx.rotate(joint.rot*Math.PI/180);ctx.scale(joint.scale,joint.scale)});
+  const joint=p;ctx.globalAlpha=chain.reduce((a,index)=>a*(actor[index].opacity??1),1);
+  ctx.drawImage(joint.img,-joint.px,-joint.py);
+  ctx.restore();
+ });
  ctx.restore();
 }
 const fightDrawBase=draw;
