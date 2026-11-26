@@ -1450,3 +1450,18 @@ test('automatic ambient soundtrack mixer creates audible audio without external 
   expect(result.duration).toBeCloseTo(2,2);
   expect(result.rms.every(value=>value>0.001)).toBeTruthy();
 });
+
+test('demo puppet automatically generates walk-cycle keyframes', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await expect(page.locator('#layers .layer')).toHaveCount(10);
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  await expect(page.locator('#motionStatus')).toContainText('automatically generated 2.5-second walk cycle');
+  await expect(page.locator('#frames .frame')).toHaveCount(25);
+  await expect(page.locator('#frames')).toContainText('◆');
+  await expect(page.locator('#motionPreset')).toHaveValue('walk');
+  await expect(page.locator('#motionDuration')).toHaveValue('60');
+  await page.locator('#frame').fill('30');
+  await page.waitForTimeout(100);
+  await expect(page.locator('#frameLabel')).toHaveText('30');
+});
