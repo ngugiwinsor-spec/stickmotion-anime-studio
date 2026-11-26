@@ -1684,3 +1684,38 @@ test('fight director places fighters within striking distance and animates a con
   expect(Math.abs(result.recovered-result.start)).toBeLessThan(2);
   expect(result.frames).toHaveLength(15);
 });
+
+
+test('fight interpolation eases both fighters and takes the shortest rotation path', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  await page.locator('#createRival').click();
+  const result = await page.evaluate(() => {
+    const heroStart=parts.map(p=>({...p,rot:0,x:0}));
+    const heroEnd=heroStart.map(p=>({...p,x:100}));
+    heroStart[0].rot=179;
+    heroEnd[0].rot=-179;
+    keys={0:heroStart,10:heroEnd};
+    const rivalStart=opponentParts.map(p=>({...p,rot:0,x:0}));
+    const rivalEnd=rivalStart.map(p=>({...p,x:100}));
+    rivalStart[0].rot=179;
+    rivalEnd[0].rot=-179;
+    opponentKeys={0:rivalStart,10:rivalEnd};
+    el('easing').value='ease';
+    applyKey(2.5);
+    interpolateOpponent(2.5);
+    return {
+      heroX:parts[0].x,
+      rivalX:opponentParts[0].x,
+      heroRotation:parts[0].rot,
+      rivalRotation:opponentParts[0].rot
+    };
+  });
+  expect(result.heroX).toBeGreaterThan(14);
+  expect(result.heroX).toBeLessThan(17);
+  expect(result.rivalX).toBeGreaterThan(14);
+  expect(result.rivalX).toBeLessThan(17);
+  expect(Math.abs(Math.abs(result.heroRotation)-180)).toBeLessThan(1);
+  expect(Math.abs(Math.abs(result.rivalRotation)-180)).toBeLessThan(1);
+});

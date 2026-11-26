@@ -144,7 +144,8 @@ function easingProgress(t,mode){
  }
  return t;
 }
-function applyKey(f){let ks=Object.keys(keys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let prev=ks.filter(k=>k<=f).pop(),next=ks.find(k=>k>=f);if(prev===undefined)prev=ks[0];if(next===undefined)next=ks[ks.length-1];let t=next===prev?0:(f-prev)/(next-prev);const mode=el('easing')?.value||'linear';t=easingProgress(t,mode);keys[prev].forEach((s,i)=>{if(!parts[i])return;let a=s,b=keys[next][i]||a;for(let q of ['x','y','rot','scale','opacity'])parts[i][q]=a[q]+(b[q]-a[q])*t});syncControls()}
+function interpolateAngle(from,to,t){const delta=((to-from+540)%360)-180;return from+delta*t}
+function applyKey(f){let ks=Object.keys(keys).map(Number).sort((a,b)=>a-b);if(!ks.length)return;let prev=ks.filter(k=>k<=f).pop(),next=ks.find(k=>k>=f);if(prev===undefined)prev=ks[0];if(next===undefined)next=ks[ks.length-1];let t=next===prev?0:(f-prev)/(next-prev);const mode=el('easing')?.value||'linear';t=easingProgress(t,mode);keys[prev].forEach((s,i)=>{if(!parts[i])return;let a=s,b=keys[next][i]||a;for(let q of ['x','y','rot','scale','opacity'])parts[i][q]=q==='rot'?interpolateAngle(a[q],b[q],t):a[q]+(b[q]-a[q])*t});syncControls()}
 function renderFrames(){
  const host=el('frames');
  if(host.children.length!==25){
@@ -1760,6 +1761,8 @@ function generateFightScene(){
  if(!opponentParts){el('fightDirectorStatus').textContent='Create a rival fighter first.';return}
  if(parts.length<10||opponentParts.length!==parts.length){el('fightDirectorStatus').textContent='Both fighters need matching articulated rigs. Recreate the rival after loading the hero.';return}
  const sequence=el('fightSequence').value;
+ /* Fight blocking uses smooth ease-in/out by default; users can still change it afterwards. */
+ el('easing').value='ease';
  const heroBase=parts.map(p=>({...p}));
  const rivalBase=opponentParts.map(p=>({...p}));
  /* Each beat has anticipation, committed travel, contact, recoil and recovery.
@@ -1844,8 +1847,10 @@ function interpolateOpponent(f){
  if(!ids.length)return;
  let a=ids.filter(k=>k<=f).pop(),b=ids.find(k=>k>=f);
  if(a===undefined)a=ids[0];if(b===undefined)b=ids[ids.length-1];
- const t=b===a?0:Math.max(0,Math.min(1,(f-a)/(b-a)));
- opponentParts.forEach((p,i)=>{const from=opponentKeys[a][i],to=opponentKeys[b][i]||from;if(!from)return;['x','y','rot','scale','opacity'].forEach(k=>p[k]=from[k]+(to[k]-from[k])*t)});
+ let t=b===a?0:Math.max(0,Math.min(1,(f-a)/(b-a)));
+ const mode=el('easing')?.value||'linear';
+ t=easingProgress(t,mode);
+ opponentParts.forEach((p,i)=>{const from=opponentKeys[a][i],to=opponentKeys[b][i]||from;if(!from)return;['x','y','rot','scale','opacity'].forEach(k=>p[k]=k==='rot'?interpolateAngle(from[k],to[k],t):from[k]+(to[k]-from[k])*t)});
 }
 const fightApplyKeyBase=applyKey;
 applyKey=function(f){fightApplyKeyBase(f);if(opponentParts)interpolateOpponent(f)};
