@@ -1615,7 +1615,7 @@ test('fight director creates two independent articulated fighters with synchroni
   await page.locator('#emptyLoadDemo').click();
   await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
   await page.locator('#createRival').click();
-  await expect(page.locator('#fightDirectorStatus')).toContainText('independent 10-part articulated rig');
+  await expect(page.locator('#fightDirectorStatus')).toContainText('facing one another at close combat distance');
   await page.locator('#generateFightScene').click();
   const result = await page.evaluate(() => ({
     heroCount: parts.length,
