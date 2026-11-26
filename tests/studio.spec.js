@@ -1639,7 +1639,7 @@ test('fight director creates two independent articulated fighters with synchroni
   expect(result.soundCues).toBeGreaterThanOrEqual(8);
   expect(result.differentPose).toBeTruthy();
   expect(result.pixels).toBeGreaterThan(5000);
-  await expect(page.locator('#fightDirectorStatus')).toContainText('synchronized poses for each fighter');
+  await expect(page.locator('#fightDirectorStatus')).toContainText('anticipation, step-in, strike, reaction and recovery for both fighters');
   expect(errors).toEqual([]);
 });
 
