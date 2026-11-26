@@ -1149,7 +1149,7 @@ el('exportEpisodeVideo').onclick=async()=>{
   rendererFrame=document.createElement('iframe');
   rendererFrame.title='Private episode export renderer';
   rendererFrame.setAttribute('aria-hidden','true');
-  rendererFrame.style.cssText='position:fixed;left:-10000px;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+  rendererFrame.style.cssText='position:fixed;left:-10000px;top:0;width:'+width+'px;height:'+height+'px;border:0;opacity:0;pointer-events:none';
   const rendererUrl=new URL(location.href);
   rendererUrl.searchParams.set('export-renderer','1');
   const ready=new Promise((resolve,reject)=>{
@@ -1198,6 +1198,7 @@ el('exportEpisodeVideo').onclick=async()=>{
    }else localFrame=globalFrame-sceneStartFrame;
    const scene=scenes[sceneIndex];
    const source=renderer.__stickMotionRenderExportFrame(localFrame);
+   if(!canvasHasVisibleContent(source,scene.project?.canvas?.background||'#222b3c',!!scene.project?.canvas?.transparent))throw new Error('Scene '+(sceneIndex+1)+' rendered a blank frame. Check artwork visibility and image loading.');
    drawFittedScene(source,scene);
    const transitionFrames=sceneIndex===0?0:Math.min(frameCounts[sceneIndex],Math.ceil(Math.max(0,Math.min(5,Number(scene.transitionDuration)||0))*fps));
    if(sceneIndex>0&&localFrame<transitionFrames&&hasPrevious){
@@ -1251,8 +1252,7 @@ el('exportEpisodeVideo').onclick=async()=>{
   verifyCanvas.width=probeVideo.videoWidth;verifyCanvas.height=probeVideo.videoHeight;
   const verifyCtx=verifyCanvas.getContext('2d');
   verifyCtx.drawImage(probeVideo,0,0);
-  const pixel=verifyCtx.getImageData(Math.floor(verifyCanvas.width/2),Math.floor(verifyCanvas.height/2),1,1).data;
-  if(pixel[3]!==255)throw new Error('The exported WebM did not decode a video frame.');
+  if(!canvasHasVisibleContent(verifyCanvas,'#000'))throw new Error('The exported episode decoded, but its frames contain no visible scene artwork. Export canceled.');
   const MB=await Engine.loadMediabunny();
   const input=new MB.Input({source:new MB.BlobSource(blob),formats:MB.ALL_FORMATS});
   const videoTrack=await input.getPrimaryVideoTrack();
