@@ -1419,3 +1419,15 @@ test('single-scene video export downloads a decodable WebM and restores the edit
   expect(editor).toEqual({ frame: 12, frameInput: 12, audioPaused: true, exporting: false });
   expect(errors).toEqual([]);
 });
+
+test('empty canvas shows starter controls and exports refuse blank scenes', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#canvasEmptyNotice')).toBeVisible();
+  await page.locator('#exportEpisodeVideo').click();
+  await expect(page.locator('#videoStatus')).toContainText('Scene 1 has no visible artwork');
+  await page.locator('#exportVideo').click();
+  await expect(page.locator('#videoStatus')).toContainText('This scene has no visible artwork');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  await expect(page.locator('#canvasEmptyNotice')).toBeHidden();
+});
