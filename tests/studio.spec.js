@@ -1606,3 +1606,55 @@ test('cinematic choreography adds camera punch-ins, impact markers and synced so
   await expect(page.locator('#choreoStatus')).toContainText('Added 5 camera punch-ins and impact sound cues');
   expect(errors).toEqual([]);
 });
+
+
+test('fight director creates two independent articulated fighters with synchronized scene keys', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  await page.locator('#createRival').click();
+  await expect(page.locator('#fightDirectorStatus')).toContainText('independent 10-part articulated rig');
+  await page.locator('#generateFightScene').click();
+  const result = await page.evaluate(() => ({
+    heroCount: parts.length,
+    rivalCount: window.__stickMotionFightDirector?.opponent?.length || 0,
+    independent: !!window.__stickMotionFightDirector?.opponent && window.__stickMotionFightDirector.opponent !== parts && window.__stickMotionFightDirector.opponent[0] !== parts[0],
+    heroFrames: Object.keys(window.__stickMotionFightKeys || {}).length,
+    rivalFrames: Object.keys(window.__stickMotionOpponentKeys || {}).length,
+    cameraFrames: Object.keys(window.__stickMotionCameraKeys || {}).length,
+    impacts: window.__stickMotionFightImpactFrames || [],
+    soundCues: (window.__stickMotionSfxCues || []).filter(c => c.fightDirector).length,
+    differentPose: JSON.stringify(window.__stickMotionFightKeys?.[18]) !== JSON.stringify(window.__stickMotionOpponentKeys?.[18]),
+    pixels: document.querySelector('#stage').toDataURL().length
+  }));
+  expect(result.heroCount).toBe(10);
+  expect(result.rivalCount).toBe(10);
+  expect(result.independent).toBeTruthy();
+  expect(result.heroFrames).toBe(14);
+  expect(result.rivalFrames).toBe(14);
+  expect(result.cameraFrames).toBeGreaterThanOrEqual(10);
+  expect(result.impacts.length).toBeGreaterThanOrEqual(4);
+  expect(result.soundCues).toBeGreaterThanOrEqual(8);
+  expect(result.differentPose).toBeTruthy();
+  expect(result.pixels).toBeGreaterThan(5000);
+  await expect(page.locator('#fightDirectorStatus')).toContainText('synchronized poses for each fighter');
+  expect(errors).toEqual([]);
+});
+
+test('fight director can remove rival without breaking the original single-character rig', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  await page.locator('#createRival').click();
+  await page.locator('#removeRival').click();
+  const result = await page.evaluate(() => ({
+    heroCount: parts.length,
+    rival: window.__stickMotionFightDirector?.opponent || null,
+    heroRootX: parts[0].x
+  }));
+  expect(result.heroCount).toBe(10);
+  expect(result.rival).toBeNull();
+  expect(result.heroRootX).toBe(0);
+});
