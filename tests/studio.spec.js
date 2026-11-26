@@ -1335,6 +1335,7 @@ test('single-scene video export downloads a decodable WebM and restores the edit
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.locator('#addDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(part => part.img && part.img.complete && part.img.naturalWidth > 0));
   await page.locator('#sceneDuration').fill('1');
   await page.locator('#sceneDuration').dispatchEvent('change');
   await page.locator('#frame').fill('12');
@@ -1368,7 +1369,18 @@ test('single-scene video export downloads a decodable WebM and restores the edit
       video.addEventListener('seeked', resolve, { once: true });
       video.addEventListener('error', () => reject(new Error('Exported WebM could not seek')), { once: true });
     });
-    const result = { width: video.videoWidth, height: video.videoHeight, duration };
+    const frameCanvas = document.createElement('canvas');
+    frameCanvas.width = video.videoWidth; frameCanvas.height = video.videoHeight;
+    const frameCtx = frameCanvas.getContext('2d'); frameCtx.drawImage(video, 0, 0);
+    const pixels = frameCtx.getImageData(0, 0, frameCanvas.width, frameCanvas.height).data;
+    let visibleSamples = 0;
+    for (let y = 0; y < frameCanvas.height; y += Math.max(1, Math.floor(frameCanvas.height / 32))) {
+      for (let x = 0; x < frameCanvas.width; x += Math.max(1, Math.floor(frameCanvas.width / 32))) {
+        const p = (y * frameCanvas.width + x) * 4;
+        if (Math.abs(pixels[p] - 34) + Math.abs(pixels[p + 1] - 43) + Math.abs(pixels[p + 2] - 60) > 36) visibleSamples++;
+      }
+    }
+    const result = { width: video.videoWidth, height: video.videoHeight, duration, visibleSamples };
     URL.revokeObjectURL(video.src);
     return result;
   }, bytes.toString('base64'));
@@ -1376,6 +1388,7 @@ test('single-scene video export downloads a decodable WebM and restores the edit
   expect(decoded.width).toBe(1280);
   expect(decoded.height).toBe(720);
   expect(decoded.duration).toBeGreaterThan(0.5);
+  expect(decoded.visibleSamples).toBeGreaterThan(0);
   const editor = await page.evaluate(() => ({
     frame,
     frameInput: Number(document.querySelector('#frame').value),
