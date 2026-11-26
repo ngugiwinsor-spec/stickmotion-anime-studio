@@ -1632,8 +1632,8 @@ test('fight director creates two independent articulated fighters with synchroni
   expect(result.heroCount).toBe(10);
   expect(result.rivalCount).toBe(10);
   expect(result.independent).toBeTruthy();
-  expect(result.heroFrames).toBe(14);
-  expect(result.rivalFrames).toBe(14);
+  expect(result.heroFrames).toBe(15);
+  expect(result.rivalFrames).toBe(15);
   expect(result.cameraFrames).toBeGreaterThanOrEqual(10);
   expect(result.impacts.length).toBeGreaterThanOrEqual(4);
   expect(result.soundCues).toBeGreaterThanOrEqual(8);
@@ -1657,4 +1657,30 @@ test('fight director can remove rival without breaking the original single-chara
   expect(result.heroCount).toBe(10);
   expect(result.rival).toBeNull();
   expect(result.heroRootX).toBe(0);
+});
+
+
+test('fight director places fighters within striking distance and animates a controlled approach and recovery', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  await page.locator('#createRival').click();
+  await page.locator('#generateFightScene').click();
+  const result = await page.evaluate(() => {
+    const h=window.__stickMotionFightKeys,r=window.__stickMotionOpponentKeys;
+    const distance=f=>Math.abs((h[f]?.[0]?.x||0)-((205-(r[f]?.[0]?.x||0))));
+    return {
+      start:distance(0),
+      contact:distance(30),
+      recovered:distance(120),
+      heroRootX:[h[0][0].x,h[30][0].x,h[120][0].x],
+      rivalRootX:[r[0][0].x,r[30][0].x,r[120][0].x],
+      frames:Object.keys(h).map(Number).sort((a,b)=>a-b)
+    };
+  });
+  expect(result.start).toBeLessThan(230);
+  expect(result.contact).toBeLessThan(result.start);
+  expect(result.contact).toBeGreaterThan(100);
+  expect(Math.abs(result.recovered-result.start)).toBeLessThan(2);
+  expect(result.frames).toHaveLength(15);
 });
