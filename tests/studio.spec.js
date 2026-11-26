@@ -1495,3 +1495,35 @@ test('demo walk cycle changes character pose across the timeline', async ({ page
   });
   expect(movement).toBeTruthy();
 });
+
+test('demo character loads as a connected shoulder elbow hip and knee rig', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  const rig = await page.evaluate(() => ({
+    parents: parts.map(p => p.parent),
+    pivots: parts.map(p => [p.px,p.py]),
+    armBefore: worldTransform(2),
+    shinBefore: worldTransform(7),
+    cycles: parts.some((p,i) => p.parent === i)
+  }));
+  expect(rig.parents).toEqual([-1,0,0,2,0,4,0,6,0,8]);
+  expect(rig.pivots[0]).toEqual([65,95]);
+  expect(rig.pivots[2]).toEqual([35,10]);
+  expect(rig.pivots[3]).toEqual([34,10]);
+  expect(rig.cycles).toBeFalsy();
+  const movement = await page.evaluate(() => {
+    const armBefore = worldTransform(2);
+    parts[0].rot = 18;
+    const armAfter = worldTransform(2);
+    const shinBefore = worldTransform(7);
+    parts[6].rot = 24;
+    const shinAfter = worldTransform(7);
+    return {
+      shoulderMovesArm: Math.abs(armAfter.x-armBefore.x)>1 || Math.abs(armAfter.y-armBefore.y)>1,
+      hipMovesShin: Math.abs(shinAfter.x-shinBefore.x)>1 || Math.abs(shinAfter.y-shinBefore.y)>1
+    };
+  });
+  expect(movement.shoulderMovesArm).toBeTruthy();
+  expect(movement.hipMovesShin).toBeTruthy();
+});
