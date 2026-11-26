@@ -100,9 +100,59 @@
     }
   }
 
+  function addAmbientMusic(context, destination, chunkStart, chunkDuration, totalDuration) {
+    // A soft, royalty-free synthesized ambient bed. Chords are scheduled on the
+    // absolute episode clock so chunk boundaries do not restart the progression.
+    const progression = [[220,261.63,329.63],[174.61,220,261.63],[196,246.94,293.66],[164.81,196,246.94]];
+    const chordSeconds = 4;
+    const chunkEnd = chunkStart + chunkDuration;
+    const chordCount = Math.ceil(totalDuration / chordSeconds);
+    for (let chordIndex = 0; chordIndex < chordCount; chordIndex++) {
+      const chordStart = chordIndex * chordSeconds;
+      const chordEnd = Math.min(totalDuration, chordStart + chordSeconds);
+      if (chordEnd <= chunkStart || chordStart >= chunkEnd) continue;
+      const localStart = Math.max(0, chordStart - chunkStart);
+      const localEnd = Math.min(chunkDuration, chordEnd - chunkStart);
+      const duration = Math.max(0.02, localEnd - localStart);
+      const chord = progression[chordIndex % progression.length];
+      chord.forEach((frequency, noteIndex) => {
+        const oscillator = context.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency * (noteIndex === 2 ? 2 : 1);
+        const gain = context.createGain();
+        const level = noteIndex === 0 ? 0.025 : 0.014;
+        const attack = Math.min(0.22, duration * 0.2);
+        gain.gain.setValueAtTime(0.0001, localStart);
+        gain.gain.linearRampToValueAtTime(level, localStart + attack);
+        gain.gain.setValueAtTime(level, Math.max(localStart + attack, localEnd - 0.18));
+        gain.gain.linearRampToValueAtTime(0.0001, localEnd);
+        oscillator.connect(gain);
+        gain.connect(destination);
+        oscillator.start(localStart);
+        oscillator.stop(localEnd);
+      });
+    }
+    // Quiet plucked notes make the bed musical without masking speech.
+    const melody = [440,392,329.63,392,523.25,440,392,329.63];
+    for (let noteTime = chunkStart; noteTime < totalDuration && noteTime < chunkEnd; noteTime += 0.5) {
+      const local = noteTime - chunkStart;
+      const oscillator = context.createOscillator();
+      oscillator.type = 'triangle';
+      oscillator.frequency.value = melody[Math.floor(noteTime / 0.5) % melody.length];
+      const gain = context.createGain();
+      gain.gain.setValueAtTime(0.0001, local);
+      gain.gain.linearRampToValueAtTime(0.018, local + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, Math.min(chunkDuration, local + 0.34));
+      oscillator.connect(gain);
+      gain.connect(destination);
+      oscillator.start(local);
+      oscillator.stop(Math.min(chunkDuration, local + 0.35));
+    }
+  }
+
   async function* mixEpisodeAudio(options) {
     const {
-      audioBuffer = null, audioOffset = 0, scenes = [], fps = 24,
+      audioBuffer = null, audioOffset = 0, backgroundMusic = false, scenes = [], fps = 24,
       sampleRate = 48000, chunkSeconds = 5
     } = options || {};
     const events = [];
@@ -124,7 +174,7 @@
       startFrame += count;
     }
     const totalDuration = startFrame / fps;
-    if (!audioBuffer && !events.length) return;
+    if (!audioBuffer && !events.length && !backgroundMusic) return;
     const OfflineContext = global.OfflineAudioContext || global.webkitOfflineAudioContext;
     if (!OfflineContext) throw new Error('This browser cannot mix episode audio.');
     for (let chunkStart = 0; chunkStart < totalDuration; chunkStart += chunkSeconds) {
@@ -141,6 +191,7 @@
           source.start(0, sourceOffset, Math.min(duration, remainingAudio));
         }
       }
+      if (backgroundMusic) addAmbientMusic(context, context.destination, chunkStart, duration, totalDuration);
       const chunkEnd = chunkStart + duration;
       for (const cue of events) {
         const cueDuration = cue.type === 'whoosh' ? 0.43 : cue.type === 'magic' ? 0.66 : 0.23;
