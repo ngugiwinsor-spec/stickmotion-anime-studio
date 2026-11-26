@@ -1496,6 +1496,30 @@ test('demo walk cycle changes character pose across the timeline', async ({ page
   expect(movement).toBeTruthy();
 });
 
+test('anime demo arms include articulated-looking hands and legs include detailed footwear', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  const details = await page.evaluate(() => {
+    const svgFor = name => decodeURIComponent(parts.find(p => p.name === name).img.src.split(',')[1]);
+    const leftHand = svgFor('Left forearm');
+    const rightHand = svgFor('Right forearm');
+    const leftBoot = svgFor('Left shin');
+    const rightBoot = svgFor('Right shin');
+    return {
+      hands: [leftHand, rightHand].every(svg => svg.includes('data-detail="hand-palm"') && svg.includes('data-detail="finger-lines"')),
+      footwear: [leftBoot, rightBoot].every(svg => svg.includes('data-detail="boot-toe"') && svg.includes('data-detail="boot-sole"') && svg.includes('data-detail="boot-armor"')),
+      allArtworkLoaded: parts.every(part => part.img.naturalWidth > 0 && part.img.naturalHeight > 0)
+    };
+  });
+  expect(details.hands).toBeTruthy();
+  expect(details.footwear).toBeTruthy();
+  expect(details.allArtworkLoaded).toBeTruthy();
+  expect(errors).toEqual([]);
+});
+
 test('demo character loads as a connected shoulder elbow hip and knee rig', async ({ page }) => {
   await page.goto('/');
   await page.locator('#emptyLoadDemo').click();
