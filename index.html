@@ -1757,6 +1757,45 @@ function changedPose(source,changes){
  Object.entries(changes).forEach(([idx,values])=>{const p=out[Number(idx)];if(p)Object.entries(values).forEach(([k,v])=>p[k]=v)});
  return out;
 }
+/* v8.2: grounded-foot constraints for the articulated demo rig. */
+function actorWorldTransform(actor,index){
+ let chain=[],seen=new Set();
+ while(index>=0&&index<actor.length&&!seen.has(index)){seen.add(index);chain.unshift(index);index=actor[index].parent??-1}
+ let x=0,y=0,r=0,sc=1;
+ chain.forEach(i=>{const p=actor[i],co=Math.cos(r*Math.PI/180),si=Math.sin(r*Math.PI/180);x+=p.x*sc*co-p.y*sc*si;y+=p.x*sc*si+p.y*sc*co;r+=p.rot;sc*=p.scale});
+ return{x,y,r,sc};
+}
+function captureGroundedFeet(actor){
+ return [6,8].map(hipIndex=>{
+  const kneeIndex=hipIndex+1,hip=actorWorldTransform(actor,hipIndex),knee=actorWorldTransform(actor,kneeIndex);
+  const lowerLength=Math.max(60,(actor[kneeIndex]?.img?.height||155)-15);
+  return {hipIndex,kneeIndex,upperLength:Math.hypot(knee.x-hip.x,knee.y-hip.y),lowerLength,x:knee.x-Math.sin(knee.r*Math.PI/180)*lowerLength,y:knee.y+Math.cos(knee.r*Math.PI/180)*lowerLength};
+ }).filter(a=>a.upperLength>1);
+}
+function getGroundedFootPositions(actor){
+ return [6,8].map(hipIndex=>{
+  const knee=actorWorldTransform(actor,hipIndex+1),length=Math.max(60,(actor[hipIndex+1]?.img?.height||155)-15);
+  return {x:knee.x-Math.sin(knee.r*Math.PI/180)*length,y:knee.y+Math.cos(knee.r*Math.PI/180)*length};
+ });
+}
+function solveGroundedFeet(actor,anchors){
+ if(!actor||!anchors?.length)return;
+ anchors.forEach(anchor=>{
+  const hip=actor[anchor.hipIndex],knee=actor[anchor.kneeIndex];
+  if(!hip||!knee)return;
+  const parent=actorWorldTransform(actor,hip.parent??-1),joint=actorWorldTransform(actor,anchor.hipIndex);
+  const dx=anchor.x-joint.x,dy=anchor.y-joint.y,raw=Math.hypot(dx,dy);
+  const a=anchor.upperLength,b=anchor.lowerLength;
+  const d=Math.max(Math.abs(a-b)+.01,Math.min(a+b-.01,raw));
+  const theta=Math.atan2(dy,dx),alpha=Math.atan2(knee.x,knee.y);
+  const cosine=Math.max(-1,Math.min(1,(a*a+d*d-b*b)/(2*a*d)));
+  const bend=Math.acos(cosine),rootWorldAngle=theta-bend-alpha;
+  const kneeX=joint.x+a*Math.cos(rootWorldAngle+alpha),kneeY=joint.y+a*Math.sin(rootWorldAngle+alpha);
+  const lowerWorldAngle=Math.atan2(anchor.y-kneeY,anchor.x-kneeX);
+  hip.rot=rootWorldAngle*180/Math.PI-parent.r;
+  knee.rot=(lowerWorldAngle-rootWorldAngle-Math.PI/2)*180/Math.PI;
+ });
+}
 function generateFightScene(){
  if(!opponentParts){el('fightDirectorStatus').textContent='Create a rival fighter first.';return}
  if(parts.length<10||opponentParts.length!==parts.length){el('fightDirectorStatus').textContent='Both fighters need matching articulated rigs. Recreate the rival after loading the hero.';return}
@@ -1765,6 +1804,8 @@ function generateFightScene(){
  el('easing').value='ease';
  const heroBase=parts.map(p=>({...p}));
  const rivalBase=opponentParts.map(p=>({...p}));
+ /* Hold ankle positions against the ground while the torso/root travels. */
+ window.__stickMotionGroundAnchors={hero:captureGroundedFeet(heroBase),rival:captureGroundedFeet(rivalBase)};
  /* Each beat has anticipation, committed travel, contact, recoil and recovery.
     Root travel closes the distance so strikes can plausibly reach the opponent. */
  const frames=[0,10,18,24,30,36,44,52,60,68,76,86,98,110,120];
@@ -1853,7 +1894,7 @@ function interpolateOpponent(f){
  opponentParts.forEach((p,i)=>{const from=opponentKeys[a][i],to=opponentKeys[b][i]||from;if(!from)return;['x','y','rot','scale','opacity'].forEach(k=>p[k]=k==='rot'?interpolateAngle(from[k],to[k],t):from[k]+(to[k]-from[k])*t)});
 }
 const fightApplyKeyBase=applyKey;
-applyKey=function(f){fightApplyKeyBase(f);if(opponentParts)interpolateOpponent(f)};
+applyKey=function(f){fightApplyKeyBase(f);if(opponentParts)interpolateOpponent(f);const anchors=window.__stickMotionGroundAnchors;if(anchors){solveGroundedFeet(parts,anchors.hero);if(opponentParts)solveGroundedFeet(opponentParts,anchors.rival)}};
 function drawFightActor(actor,offsetX,mirror){
  if(!actor?.length)return;
  ctx.save();
@@ -1880,6 +1921,7 @@ function drawFightActor(actor,offsetX,mirror){
 const fightDrawBase=draw;
 draw=function(){fightDrawBase();if(opponentParts)drawFightActor(opponentParts,205,true)};
 window.__stickMotionFightDirector={createRival:createFightRival,removeRival:removeFightRival,generate:generateFightScene,get opponent(){return opponentParts},get keys(){return opponentKeys},get impacts(){return fightImpactFrames}};
+window.__stickMotionGrounding={feet:getGroundedFootPositions,solve:solveGroundedFeet};
 window.__stickMotionOpponentParts=opponentParts;
 window.__stickMotionCameraKeys=cameraKeys;
 window.__stickMotionSfxCues=sfxCues;
