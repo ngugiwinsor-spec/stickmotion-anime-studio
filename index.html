@@ -1779,20 +1779,21 @@ function solveGroundedFeet(actor,anchors){
  if(!actor||!anchors?.length)return;
  anchors.forEach(anchor=>{
   const hip=actor[anchor.hipIndex],shin=actor[anchor.kneeIndex];if(!hip||!shin)return;
-  // Damped numerical IK derives angle influence from the actual rig hierarchy.
-  for(let iter=0;iter<12;iter++){
+  /* Numerical Jacobian is measured in degrees and updates are also in degrees. */
+  for(let iter=0;iter<32;iter++){
    const p=groundedAnkle(actor,anchor.kneeIndex),ex=anchor.x-p.x,ey=anchor.y-p.y;
-   if(Math.hypot(ex,ey)<.15)break;
-   const step=.001,oldHip=hip.rot,oldShin=shin.rot;
+   if(Math.hypot(ex,ey)<.35)break;
+   const step=.5,oldHip=hip.rot,oldShin=shin.rot;
    hip.rot=oldHip+step;const ph=groundedAnkle(actor,anchor.kneeIndex);hip.rot=oldHip;
    shin.rot=oldShin+step;const ps=groundedAnkle(actor,anchor.kneeIndex);shin.rot=oldShin;
    const j1x=(ph.x-p.x)/step,j1y=(ph.y-p.y)/step,j2x=(ps.x-p.x)/step,j2y=(ps.y-p.y)/step;
-   const a=j1x*j1x+j1y*j1y+1e-3,b=j1x*j2x+j1y*j2y,c=j2x*j2x+j2y*j2y+1e-3,det=a*c-b*b;
-   if(Math.abs(det)<1e-8)break;
+   const a=j1x*j1x+j1y*j1y+1e-4,b=j1x*j2x+j1y*j2y,c=j2x*j2x+j2y*j2y+1e-4,det=a*c-b*b;
+   if(Math.abs(det)<1e-10)break;
    let d1=(c*(j1x*ex+j1y*ey)-b*(j2x*ex+j2y*ey))/det;
    let d2=(a*(j2x*ex+j2y*ey)-b*(j1x*ex+j1y*ey))/det;
-   const maxStep=.35,scale=Math.max(1,Math.abs(d1)/maxStep,Math.abs(d2)/maxStep);
-   hip.rot=oldHip+d1/scale*180/Math.PI;shin.rot=oldShin+d2/scale*180/Math.PI;
+   /* Damped least-squares step: clamp angular changes to keep it stable. */
+   const maxStep=4,scale=Math.max(1,Math.abs(d1)/maxStep,Math.abs(d2)/maxStep);
+   hip.rot=oldHip+d1/scale*.8;shin.rot=oldShin+d2/scale*.8;
   }
  });
 }
