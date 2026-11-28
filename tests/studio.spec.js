@@ -1719,3 +1719,29 @@ test('fight interpolation eases both fighters and takes the shortest rotation pa
   expect(Math.abs(Math.abs(result.heroRotation)-180)).toBeLessThan(1);
   expect(Math.abs(Math.abs(result.rivalRotation)-180)).toBeLessThan(1);
 });
+
+
+test('fight choreography keeps both fighters feet planted while their bodies move', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#emptyLoadDemo').click();
+  await page.waitForFunction(() => parts.length === 10 && parts.every(p => p.img?.complete && p.img?.naturalWidth > 0));
+  await page.locator('#createRival').click();
+  await page.locator('#generateFightScene').click();
+  const result = await page.evaluate(() => {
+    const api=window.__stickMotionGrounding;
+    const heroStart=api.feet(parts),rivalStart=api.feet(window.__stickMotionFightDirector.opponent);
+    const heroRootStart=parts[0].x,rivalRootStart=window.__stickMotionFightDirector.opponent[0].x;
+    applyKey(30);
+    const heroDuring=api.feet(parts),rivalDuring=api.feet(window.__stickMotionFightDirector.opponent);
+    return {
+      heroError:Math.max(...heroStart.map((p,i)=>Math.hypot(p.x-heroDuring[i].x,p.y-heroDuring[i].y))),
+      rivalError:Math.max(...rivalStart.map((p,i)=>Math.hypot(p.x-rivalDuring[i].x,p.y-rivalDuring[i].y))),
+      heroMoved:Math.abs(parts[0].x-heroRootStart)>10,
+      rivalMoved:Math.abs(window.__stickMotionFightDirector.opponent[0].x-rivalRootStart)>10
+    };
+  });
+  expect(result.heroMoved).toBeTruthy();
+  expect(result.rivalMoved).toBeTruthy();
+  expect(result.heroError).toBeLessThan(2);
+  expect(result.rivalError).toBeLessThan(2);
+});
